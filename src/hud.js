@@ -299,7 +299,13 @@ export function showGameOver(won) {
       if (statusEl) statusEl.textContent = 'A submeter...';
       const totalScore = gameState.getTotalScore();
       const result = await submitScore(name, totalScore, gameState.round, gameState.kills);
-      if (statusEl) statusEl.textContent = result.success ? 'Score submetido! 🎉' : 'Erro ao submeter';
+      if (statusEl) {
+        if (result.success && result.kept === false) {
+          statusEl.textContent = 'Já tens um score maior! 💪';
+        } else {
+          statusEl.textContent = result.success ? 'Score submetido! 🎉' : 'Erro ao submeter';
+        }
+      }
       if (submitDiv) submitDiv.style.display = 'none';
     };
     submitBtn.onclick = handler;

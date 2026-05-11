@@ -22,14 +22,13 @@ export async function submitScore(name, score, round, kills) {
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
-      mode: 'no-cors', // Google Apps Script requer no-cors para POST cross-origin
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, score, round, kills }),
     });
-    // no-cors não permite ler a resposta, assumimos sucesso
-    // Invalidar cache para forçar refresh
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
     cachedLeaderboard = null;
-    return { success: true };
+    return { success: true, kept: data.kept !== false, message: data.message || '' };
   } catch (err) {
     console.error('Ranking: erro ao submeter score', err);
     return { success: false, error: err.message };

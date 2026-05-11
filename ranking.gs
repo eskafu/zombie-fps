@@ -17,15 +17,25 @@ function doGet(e) {
   const data = sheet.getDataRange().getValues();
 
   // Ignorar cabeçalho
-  const scores = data.slice(1)
-    .filter(row => row[0] && row[1])
-    .map(row => ({
-      name: String(row[0]).substring(0, 20),
-      score: Number(row[1]) || 0,
-      round: Number(row[2]) || 1,
-      kills: Number(row[3]) || 0,
-      date: row[4] || '',
-    }))
+  const scoresMap = {};
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const name = String(row[0] || '').trim();
+    const score = Number(row[1]) || 0;
+    if (!name) continue;
+    // Guarda apenas o score mais alto por nome
+    if (!scoresMap[name] || score > scoresMap[name].score) {
+      scoresMap[name] = {
+        name,
+        score,
+        round: Number(row[2]) || 1,
+        kills: Number(row[3]) || 0,
+        date: row[4] || '',
+      };
+    }
+  }
+
+  const scores = Object.values(scoresMap)
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
 
@@ -47,11 +57,37 @@ function doPost(e) {
     }
 
     const sheet = getOrCreateSheet();
+    const data = sheet.getDataRange().getValues();
+
+    // Verificar se o nome já existe — se sim, só atualiza se score for maior
+    let existingRow = -1;
+    for (let i = 1; i < data.length; i++) {
+      const rowName = String(data[i][0] || '').trim();
+      if (rowName.toLowerCase() === name.toLowerCase()) {
+        const existingScore = Number(data[i][1]) || 0;
+        if (score <= existingScore) {
+          return ContentService
+            .createTextOutput(JSON.stringify({ success: true, name, score, kept: false, message: 'Score não supera o recorde pessoal' }))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+        existingRow = i + 1; // 1-based row number
+        break;
+      }
+    }
+
+    const date = new Date().toLocaleString('pt-PT');
+
+    if (existingRow > 0) {
+      // Atualizar linha existente com score maior
+      sheet.getRange(existingRow, 1, 1, 5).setValues([[name, score, round, kills, date]]);
+    } else {
+      // Nova entrada
+      sheet.appendRow([name, score, round, kills, date]);
+    }
 
     // Limpar scores antigos se ultrapassar o máximo
     const lastRow = sheet.getLastRow();
     if (lastRow > MAX_SCORES) {
-      // Manter os 100 melhores + cabeçalho
       const allData = sheet.getDataRange().getValues();
       const sorted = allData.slice(1)
         .filter(row => row[0])
@@ -63,9 +99,6 @@ function doPost(e) {
         sheet.getRange(2, 1, sorted.length, 5).setValues(sorted);
       }
     }
-
-    const date = new Date().toLocaleString('pt-PT');
-    sheet.appendRow([name, score, round, kills, date]);
 
     // Ordenar por score
     sortSheetByScore(sheet);
