@@ -2,7 +2,7 @@
 // Zombie FPS — Integração com Google Sheets Ranking
 // ═══════════════════════════════════════════════════════
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzN0OuwwmgwJSM4HiOevSoStQBdCy92eFPmVAG71IpJdUMcADjQ0IahzlQPxBawHvaM2A/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbz9tyT1vcOgO6syx7gkB5H_9G4w0XiJhst9ByaTFCqtz42HYOlIZbE6VMfWu3-vQb0Ptw/exec';
 
 let cachedLeaderboard = null;
 let cachedTime = 0;
