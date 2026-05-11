@@ -21,11 +21,19 @@ body {
 }
 
 h1 {
-    font-size: 4rem;
+    font-size: 2.8rem;
     color: #ff4444;
-    text-shadow: 0 0 20px #ff2200, 2px 2px #000;
-    margin-bottom: 10px;
-    letter-spacing: 4px;
+    text-shadow: 0 0 20px #ff0000;
+    margin-bottom: 5px;
+}
+
+.signature {
+    font-size: 0.9rem;
+    color: #ff8844;
+    margin: 0 0 15px 0;
+    font-style: italic;
+    letter-spacing: 2px;
+    text-shadow: 0 0 8px #ff440088;
 }
 
 #last-score { font-weight: bold; color: #ffd700; }
