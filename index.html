@@ -14,6 +14,11 @@
         <p id="menu-max-round">Melhor Round: <span id="best-round">1</span></p>
         <p id="menu-max-kills">Melhor Score: <span id="best-kills">0</span> kills</p>
         <button id="start-button">INICIAR JOGO</button>
+        <div id="menu-leaderboard">
+            <h3>🏆 TOP 10</h3>
+            <ol id="menu-leaderboard-list"></ol>
+            <p id="menu-leaderboard-loading">A carregar...</p>
+        </div>
         <div class="instructions">
             <p>WASD - Mover &nbsp;|&nbsp; Mouse - Olhar &nbsp;|&nbsp; Clique - Atirar</p>
             <p>Shift - Sprint &nbsp;|&nbsp; R - Recarregar &nbsp;|&nbsp; E - Comprar</p>
@@ -67,7 +72,23 @@
     <div id="game-over" style="display:none;">
         <h1 id="game-over-title">GAME OVER</h1>
         <p>Round chegado: <strong id="final-round">1</strong></p>
-        <p>Kills: <strong id="final-score">0</strong></p>
+        <p>Kills: <strong id="final-kills">0</strong></p>
+        <p>Score: <strong id="final-score-display">0</strong> pts</p>
+
+        <!-- Submeter score -->
+        <div id="submit-score" style="display:none;">
+            <input type="text" id="player-name" placeholder="O teu nome" maxlength="20" autocomplete="off">
+            <button id="submit-score-btn">SUBMETER SCORE</button>
+            <p id="submit-status"></p>
+        </div>
+
+        <!-- Leaderboard -->
+        <div id="leaderboard">
+            <h3>🏆 TOP 10</h3>
+            <ol id="leaderboard-list"></ol>
+            <p id="leaderboard-loading">A carregar...</p>
+        </div>
+
         <button id="restart-button">VOLTAR AO MENU</button>
     </div>
 

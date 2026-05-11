@@ -3,6 +3,7 @@ import { getActivePowerupLabels } from './powerups.js';
 import { getAmmoState, getCurrentWeapon, getOwnedWeapons } from './weapon.js';
 import { isNearStation, getStationCost } from './ammostation.js';
 import { isNearMysteryBox, getBoxCost, getBoxState } from './mysterybox.js';
+import { getLeaderboard, submitScore } from './ranking.js';
 
 const elements = {};
 let bloodTimer = 0;
@@ -241,6 +242,7 @@ export function showMenu(lastScore) {
   if (lastScore !== undefined && elements.lastScore) {
     elements.lastScore.textContent = lastScore;
   }
+  loadLeaderboard('menu-leaderboard-list', 'menu-leaderboard-loading');
   document.exitPointerLock();
 }
 
@@ -270,9 +272,82 @@ export function showGameOver(won) {
     elements.gameOverTitle.textContent = 'GAME OVER';
     elements.gameOverTitle.style.color = '#ff4444';
   }
-  if (elements.finalScore) elements.finalScore.textContent = gameState.kills;
-  if (elements.finalRound) elements.finalRound.textContent = gameState.round;
+  // Show stats
+  const finalKillsEl = document.getElementById('final-kills');
+  const finalScoreEl = document.getElementById('final-score-display');
+  const finalRoundEl = document.getElementById('final-round');
+  if (finalKillsEl) finalKillsEl.textContent = gameState.kills;
+  if (finalScoreEl) finalScoreEl.textContent = gameState.kills; // score = kills for now
+  if (finalRoundEl) finalRoundEl.textContent = gameState.round;
+
+  // Show submit form
+  const submitDiv = document.getElementById('submit-score');
+  if (submitDiv) submitDiv.style.display = 'block';
+  const statusEl = document.getElementById('submit-status');
+  if (statusEl) statusEl.textContent = '';
+
+  // Wire submit button
+  const submitBtn = document.getElementById('submit-score-btn');
+  const nameInput = document.getElementById('player-name');
+  if (submitBtn && nameInput) {
+    const handler = async () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        if (statusEl) statusEl.textContent = 'Escreve o teu nome!';
+        return;
+      }
+      if (statusEl) statusEl.textContent = 'A submeter...';
+      const result = await submitScore(name, gameState.kills, gameState.round, gameState.kills);
+      if (statusEl) statusEl.textContent = result.success ? 'Score submetido! 🎉' : 'Erro ao submeter';
+      if (submitDiv) submitDiv.style.display = 'none';
+    };
+    submitBtn.onclick = handler;
+    nameInput.onkeydown = (e) => { if (e.key === 'Enter') handler(); };
+  }
+
+  loadLeaderboard('leaderboard-list', 'leaderboard-loading');
   document.exitPointerLock();
+}
+
+// ═══════════════════════════════════════════════════════
+// Leaderboard
+// ═══════════════════════════════════════════════════════
+async function loadLeaderboard(listId, loadingId) {
+  const list = document.getElementById(listId);
+  const loading = document.getElementById(loadingId);
+  if (!list) return;
+
+  list.innerHTML = '';
+  if (loading) loading.style.display = 'block';
+
+  try {
+    const scores = await getLeaderboard();
+    if (loading) loading.style.display = 'none';
+
+    if (!scores || scores.length === 0) {
+      list.innerHTML = '<li class="lb-empty">Sem scores ainda. Sê o primeiro!</li>';
+      return;
+    }
+
+    list.innerHTML = scores.map((s, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      return `<li class="lb-entry">
+        <span class="lb-rank">${medal}</span>
+        <span class="lb-name">${escapeHtml(s.name)}</span>
+        <span class="lb-score">${Number(s.score).toLocaleString()} pts</span>
+        <span class="lb-round">R${s.round}</span>
+      </li>`;
+    }).join('');
+  } catch (err) {
+    if (loading) loading.style.display = 'none';
+    list.innerHTML = '<li class="lb-empty">Leaderboard indisponível</li>';
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 export function showBlood() {
