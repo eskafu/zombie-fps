@@ -1,0 +1,10 @@
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+*.log
+.hermes/
+.opencode/
+.claude/
+Novo Documento de Texto.txt

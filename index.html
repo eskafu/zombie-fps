@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie FPS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Menu Principal -->
+    <div id="menu">
+        <h1>ZOMBIE SURVIVAL</h1>
+        <p>Último Score: <span id="last-score">0</span> pts</p>
+        <p id="menu-max-round">Melhor Round: <span id="best-round">1</span></p>
+        <p id="menu-max-kills">Melhor Score: <span id="best-kills">0</span> kills</p>
+        <button id="start-button">INICIAR JOGO</button>
+        <div class="instructions">
+            <p>WASD - Mover &nbsp;|&nbsp; Mouse - Olhar &nbsp;|&nbsp; Clique - Atirar</p>
+            <p>Shift - Sprint &nbsp;|&nbsp; R - Recarregar &nbsp;|&nbsp; E - Comprar</p>
+            <p>1 - Pistol &nbsp;|&nbsp; 2 - Shotgun &nbsp;|&nbsp; 3 - SMG &nbsp;|&nbsp; 4 - Alien &nbsp;|&nbsp; 5 - Raygun</p>
+            <p>E - Comprar munição &nbsp;|&nbsp; Mystery Box (ronda 3+)</p>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" style="display:none;">
+
+        <!-- Canto superior esquerdo -->
+        <div id="hud-left">
+            <div class="hud-label">VIDAS</div>
+            <div id="lives">❤️</div>
+            <div class="hud-label" style="margin-top:10px;">KILLS</div>
+            <div class="hud-value" id="kills">0</div>
+        </div>
+
+        <!-- Canto superior direito -->
+        <div id="hud-right">
+            <div class="hud-label">PONTOS</div>
+            <div class="hud-value" id="points">500</div>
+            <div class="hud-label" style="margin-top:10px;">ROUND</div>
+            <div class="hud-value" id="round">1</div>
+            <div class="hud-label" style="margin-top:6px;">ZOMBIES</div>
+            <div class="hud-value" id="zombies-left">0</div>
+        </div>
+
+        <!-- Ammo (canto inferior direito) -->
+        <div id="ammo-display"></div>
+
+        <!-- Power-ups activos -->
+        <div id="powerup-list"></div>
+
+        <!-- Banner de round -->
+        <div id="round-banner">ROUND 1</div>
+
+        <!-- Intermission -->
+        <div id="intermission" style="display:none;"></div>
+
+        <!-- Prompt de compra -->
+        <div id="buy-prompt" style="display:none;"></div>
+
+        <!-- Mira e hit marker -->
+        <div id="crosshair"></div>
+        <div id="hit-marker">X</div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="game-over" style="display:none;">
+        <h1 id="game-over-title">GAME OVER</h1>
+        <p>Round chegado: <strong id="final-round">1</strong></p>
+        <p>Kills: <strong id="final-score">0</strong></p>
+        <button id="restart-button">VOLTAR AO MENU</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="game.js"></script>
+</body>
+</html>
