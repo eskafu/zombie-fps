@@ -4,7 +4,7 @@
 // Substitui o URL abaixo pelo teu depois de implementar o Apps Script
 // Vai a script.google.com > Implementar > App Web e copia o URL
 
-const API_URL = 'https://script.google.com/macros/s/COLA_AQUI_O_TEU_URL/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbx89UcpQkAc-_PlNlhWr9_YAjmCFUo2FlQN53lZzfLOHc2GD286fOd7Urn62m93X8YshA/exec';
 
 let cachedLeaderboard = null;
 let cachedTime = 0;
