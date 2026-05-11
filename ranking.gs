@@ -57,14 +57,14 @@ function doPost(e) {
     }
 
     const sheet = getOrCreateSheet();
-    const data = sheet.getDataRange().getValues();
+    const sheetData = sheet.getDataRange().getValues();
 
     // Verificar se o nome já existe — se sim, só atualiza se score for maior
     let existingRow = -1;
-    for (let i = 1; i < data.length; i++) {
-      const rowName = String(data[i][0] || '').trim();
+    for (let i = 1; i < sheetData.length; i++) {
+      const rowName = String(sheetData[i][0] || '').trim();
       if (rowName.toLowerCase() === name.toLowerCase()) {
-        const existingScore = Number(data[i][1]) || 0;
+        const existingScore = Number(sheetData[i][1]) || 0;
         if (score <= existingScore) {
           return ContentService
             .createTextOutput(JSON.stringify({ success: true, name, score, kept: false, message: 'Score não supera o recorde pessoal' }))
