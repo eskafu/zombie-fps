@@ -321,7 +321,10 @@ export function updateZombies(delta, audioCallback) {
 }
 
 export function checkShot(raycaster) {
-  const meshes = zombies.filter(z => z.alive).map(z => z.mesh);
+  const meshes = zombies.filter(z => z.alive).map(z => {
+    z.mesh.updateWorldMatrix(true, false);
+    return z.mesh;
+  });
   const intersects = raycaster.intersectObjects(meshes, true);
   if (intersects.length === 0) return null;
 

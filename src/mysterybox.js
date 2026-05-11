@@ -7,7 +7,7 @@ import { createCelMaterial } from './celshade.js';
 
 const BOX_POS = new THREE.Vector3(-18, 0, -24);
 const INTERACT_RADIUS = 3.5;
-const BOX_COST = 950;
+const BOX_COST = 1200;
 const BOX_APPEAR_ROUND = 3;
 
 // Weapons the box can give (excludes pistol)

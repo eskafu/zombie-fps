@@ -35,7 +35,7 @@ export const gameState = {
     this.nukeQueued = false;
     this.instaKill = false;
     this.doublePoints = false;
-    this.lifeRegenTimer = 20;
+    this.lifeRegenTimer = 5;
     this._beginRound();
   },
 
@@ -118,7 +118,7 @@ export const gameState = {
       this.lifeRegenTimer -= delta;
       if (this.lifeRegenTimer <= 0) {
         this.lives = Math.min(this.lives + 1, this.MAX_LIVES);
-        this.lifeRegenTimer = 20;
+        this.lifeRegenTimer = 5;
       }
     }
 
@@ -151,5 +151,10 @@ export const gameState = {
 
   getZombiesLeft() {
     return Math.max(0, this.zombiesInRound - this.zombiesKilled);
-  }
+  },
+
+  getTotalScore() {
+    // Round é o fator mais importante, depois kills, depois pontos
+    return this.round * 10000 + this.kills * 100 + this.points;
+  },
 };

@@ -594,18 +594,20 @@ function shoot() {
       spreadVec.y += (Math.random() - 0.5) * def.spread * 2;
       spreadVec.z += (Math.random() - 0.5) * def.spread * 2;
     }
+    spreadVec.normalize();
     raycaster.set(camera.position, spreadVec);
+    raycaster.far = 150;
 
     const hit = checkShot(raycaster);
     if (hit) {
       anyHit = true;
       if (hit.isHead) anyHead = true;
-      gameState.addPoints(10);
+      gameState.addPoints(5);
       const damage = hit.isHead ? def.headDamage : def.damage;
       const killed = damageZombie(hit.zombie, damage);
       if (killed) {
         anyKill = true;
-        gameState.addPoints(hit.isHead ? 130 : 60);
+        gameState.addPoints(hit.isHead ? 50 : 25);
       }
     }
   }

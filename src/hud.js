@@ -297,7 +297,8 @@ export function showGameOver(won) {
         return;
       }
       if (statusEl) statusEl.textContent = 'A submeter...';
-      const result = await submitScore(name, gameState.kills, gameState.round, gameState.kills);
+      const totalScore = gameState.getTotalScore();
+      const result = await submitScore(name, totalScore, gameState.round, gameState.kills);
       if (statusEl) statusEl.textContent = result.success ? 'Score submetido! 🎉' : 'Erro ao submeter';
       if (submitDiv) submitDiv.style.display = 'none';
     };
