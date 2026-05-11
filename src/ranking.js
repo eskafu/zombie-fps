@@ -9,57 +9,66 @@ let cachedTime = 0;
 const CACHE_DURATION = 60;
 
 // ═══════════════════════════════════════════════════════
-// Enviar score
+// Enviar score (no-cors = fire and forget)
 // ═══════════════════════════════════════════════════════
 export async function submitScore(name, score, round, kills) {
-  if (API_URL.includes('COLA_AQUI')) {
-    return { success: false, error: 'API não configurada' };
-  }
-
   try {
-    // Sem Content-Type: application/json evita CORS preflight
-    const res = await fetch(API_URL, {
+    await fetch(API_URL, {
       method: 'POST',
+      mode: 'no-cors',
       body: JSON.stringify({ name, score, round, kills }),
     });
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch { data = {}; }
     cachedLeaderboard = null;
-    return { success: true, kept: data.kept !== false, message: data.message || '' };
+    return { success: true };
   } catch (err) {
-    console.error('Ranking: erro POST', err);
+    console.error('Ranking POST error:', err);
     return { success: false, error: err.message };
   }
 }
 
 // ═══════════════════════════════════════════════════════
-// Obter leaderboard
+// Obter leaderboard via JSONP (bypass CORS)
 // ═══════════════════════════════════════════════════════
-export async function getLeaderboard() {
-  if (API_URL.includes('COLA_AQUI')) return [];
-
+export function getLeaderboard() {
   const now = Date.now() / 1000;
   if (cachedLeaderboard && (now - cachedTime) < CACHE_DURATION) {
-    return cachedLeaderboard;
+    return Promise.resolve(cachedLeaderboard);
   }
 
-  try {
-    const res = await fetch(API_URL);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      cachedLeaderboard = data;
-      cachedTime = now;
-      return data;
+  return new Promise((resolve) => {
+    const callbackName = 'zm_ranking_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => {
+      cleanup();
+      resolve(cachedLeaderboard || []);
+    }, 5000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      delete window[callbackName];
+      if (script.parentNode) script.remove();
     }
-    return cachedLeaderboard || [];
-  } catch (err) {
-    console.error('Ranking: erro GET', err);
-    return cachedLeaderboard || [];
-  }
+
+    window[callbackName] = (data) => {
+      cleanup();
+      if (Array.isArray(data)) {
+        cachedLeaderboard = data;
+        cachedTime = Date.now() / 1000;
+        resolve(data);
+      } else {
+        resolve(cachedLeaderboard || []);
+      }
+    };
+
+    script.src = API_URL + '?callback=' + callbackName;
+    script.onerror = () => {
+      cleanup();
+      resolve(cachedLeaderboard || []);
+    };
+    document.head.appendChild(script);
+  });
 }
 
 export function isConfigured() {
-  return !API_URL.includes('COLA_AQUI');
+  return true;
 }

@@ -13,6 +13,7 @@ const SHEET_NAME = 'Ranking';
 const MAX_SCORES = 500; // máximo de linhas antes de limpar
 
 function doGet(e) {
+  const callback = e && e.parameter && e.parameter.callback;
   const sheet = getOrCreateSheet();
   const data = sheet.getDataRange().getValues();
 
@@ -39,8 +40,17 @@ function doGet(e) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
 
+  const json = JSON.stringify(scores);
+
+  // JSONP: envolve em callback para bypass CORS
+  if (callback) {
+    return ContentService
+      .createTextOutput(callback + '(' + json + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+
   return ContentService
-    .createTextOutput(JSON.stringify(scores))
+    .createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
 }
 
