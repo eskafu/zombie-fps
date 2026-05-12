@@ -1,8 +1,8 @@
 import { gameState } from './game-state.js';
 import { getActivePowerupLabels } from './powerups.js';
 import { getAmmoState, getCurrentWeapon, getOwnedWeapons } from './weapon.js';
-import { isNearStation, getStationCost } from './ammostation.js';
-import { isNearMysteryBox, getBoxCost, getBoxState } from './mysterybox.js';
+import { isNearStation, getStationCost, getStationMessage } from './ammostation.js';
+import { isNearMysteryBox, getBoxCost, getBoxMessage } from './mysterybox.js';
 import { getLeaderboard, submitScore } from './ranking.js';
 
 const elements = {};
@@ -143,7 +143,9 @@ export function updateHUD(delta) {
   // Ammo
   if (elements.ammoDisplay) {
     const ammo = getAmmoState();
-    if (ammo.reloading) {
+    if (ammo.melee) {
+      elements.ammoDisplay.innerHTML = `<span class="ammo-weapon">${ammo.weaponName}</span>`;
+    } else if (ammo.reloading) {
       const pct = Math.round(Math.min(99, Math.max(0, (1 - ammo.reloadTimer / ammo.reloadTime) * 100)));
       elements.ammoDisplay.innerHTML = `<span class="ammo-reload">RECARREGAR ${pct}%</span>`;
     } else {
@@ -166,6 +168,7 @@ export function updateHUD(delta) {
       { key: 'smg', num: '3', label: 'SMG' },
       { key: 'aliengun', num: '4', label: 'ALIEN' },
       { key: 'raygun', num: '5', label: 'RAYGUN' },
+      { key: 'katana', num: '6', label: 'KATANA' },
     ];
     const items = [];
     for (const s of slotDefs) {
@@ -178,8 +181,17 @@ export function updateHUD(delta) {
 
   // Buy prompts
   if (elements.buyPrompt) {
-    // Ammo station prompt
-    if (isNearStation()) {
+    const stationMessage = getStationMessage();
+    const boxMessage = getBoxMessage();
+    if (stationMessage) {
+      elements.buyPrompt.style.display = 'block';
+      elements.buyPrompt.style.color = '#44ff88';
+      elements.buyPrompt.textContent = stationMessage;
+    } else if (boxMessage) {
+      elements.buyPrompt.style.display = 'block';
+      elements.buyPrompt.style.color = '#ffdd00';
+      elements.buyPrompt.textContent = boxMessage;
+    } else if (isNearStation()) {
       const cost = getStationCost();
       const canAfford = gameState.points >= cost;
       elements.buyPrompt.style.display = 'block';
@@ -191,7 +203,7 @@ export function updateHUD(delta) {
       // Mystery box prompt
       const cost = getBoxCost();
       const owned = getOwnedWeapons();
-      const allOwned = owned.shotgun && owned.smg && owned.aliengun && owned.raygun;
+      const allOwned = owned.shotgun && owned.smg && owned.aliengun && owned.raygun && owned.katana;
       if (allOwned) {
         elements.buyPrompt.style.display = 'block';
         elements.buyPrompt.style.color = '#888888';
@@ -240,7 +252,7 @@ export function showMenu(lastScore) {
   if (elements.weaponSlots) elements.weaponSlots.style.display = 'none';
   if (elements.vignette) elements.vignette.style.opacity = '0';
   if (lastScore !== undefined && elements.lastScore) {
-    elements.lastScore.textContent = lastScore;
+    elements.lastScore.textContent = Number(lastScore).toLocaleString();
   }
   loadLeaderboard('menu-leaderboard-list', 'menu-leaderboard-loading');
   document.exitPointerLock();
@@ -276,8 +288,9 @@ export function showGameOver(won) {
   const finalKillsEl = document.getElementById('final-kills');
   const finalScoreEl = document.getElementById('final-score-display');
   const finalRoundEl = document.getElementById('final-round');
+  const totalScore = gameState.getTotalScore();
   if (finalKillsEl) finalKillsEl.textContent = gameState.kills;
-  if (finalScoreEl) finalScoreEl.textContent = gameState.kills; // score = kills for now
+  if (finalScoreEl) finalScoreEl.textContent = totalScore.toLocaleString();
   if (finalRoundEl) finalRoundEl.textContent = gameState.round;
 
   // Show submit form
@@ -297,13 +310,12 @@ export function showGameOver(won) {
         return;
       }
       if (statusEl) statusEl.textContent = 'A submeter...';
-      const totalScore = gameState.getTotalScore();
       const result = await submitScore(name, totalScore, gameState.round, gameState.kills);
       if (statusEl) {
         if (result.success && result.kept === false) {
-          statusEl.textContent = 'Já tens um score maior! 💪';
+          statusEl.textContent = 'Já tens um score maior!';
         } else {
-          statusEl.textContent = result.success ? 'Score submetido! 🎉' : 'Erro ao submeter';
+          statusEl.textContent = result.success ? 'Score submetido!' : 'Erro ao submeter';
         }
       }
       if (submitDiv) submitDiv.style.display = 'none';

@@ -13,6 +13,8 @@ let stationMesh = null;
 let nearStation = false;
 let pulseTime = 0;
 let stationLight = null;
+let stationMessage = '';
+let stationMessageTimer = 0;
 
 export function initAmmoStation() {
   const scene = getScene();
@@ -64,10 +66,13 @@ function onKeyDown(e) {
   gameState.points -= AMMO_COST;
   refillAmmoSilent();
   lowerWeaponBriefly();
+  stationMessage = 'MUNIÇÃO REPOSTA';
+  stationMessageTimer = 1.5;
 }
 
 export function updateAmmoStation(delta) {
   pulseTime += delta;
+  stationMessageTimer = Math.max(0, stationMessageTimer - delta);
 
   if (stationLight) {
     stationLight.intensity = 0.5 + 0.3 * Math.sin(pulseTime * 3);
@@ -81,3 +86,4 @@ export function updateAmmoStation(delta) {
 
 export function isNearStation() { return nearStation; }
 export function getStationCost() { return AMMO_COST; }
+export function getStationMessage() { return stationMessageTimer > 0 ? stationMessage : ''; }

@@ -14,7 +14,26 @@ export function playShot(weaponType) {
   const ctx = getCtx();
   const now = ctx.currentTime;
 
-  if (weaponType === 'shotgun') {
+  if (weaponType === 'katana') {
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(700, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.18);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(450, now);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
+  } else if (weaponType === 'shotgun') {
     // Shotgun: deeper, louder, longer
     const osc = ctx.createOscillator();
     osc.type = 'sawtooth';

@@ -59,7 +59,7 @@ function gameLoop() {
     updateBlood(delta);
 
     if (gameState.state === 'game-over') {
-      lastScore = gameState.kills;
+      lastScore = gameState.getTotalScore();
       showGameOver(false);
     }
   }

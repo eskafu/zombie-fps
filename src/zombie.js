@@ -203,7 +203,6 @@ export function updateZombies(delta, audioCallback) {
   }
 
   // Spawn zombies gradually
-  const aliveCount = zombies.filter(z => z.alive).length;
   if (!gameState.roundStarting) {
     // Round just started — spawn initial batch immediately
     if (wasRoundStarting) {
@@ -215,9 +214,9 @@ export function updateZombies(delta, audioCallback) {
     }
     spawnAccumulator += delta;
     const interval = gameState.getSpawnInterval();
-    while (spawnAccumulator >= interval && aliveCount < MAX_ZOMBIES) {
+    while (spawnAccumulator >= interval && zombies.filter(z => z.alive).length < MAX_ZOMBIES) {
       spawnAccumulator -= interval;
-      spawnSingle(scene, playerPos);
+      if (!spawnSingle(scene, playerPos)) break;
     }
   }
 

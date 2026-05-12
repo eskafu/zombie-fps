@@ -67,6 +67,17 @@ const SPRITESHEET_CONFIG = {
     muzzleOffset: { x: 0, y: 0.14, z: -0.22 },
     planeSize: { w: 0.55, h: 0.55 },
   },
+  katana: {
+    path: 'assets/armas/katana.png',
+    gridCols: 2, gridRows: 3,
+    animFrames: {
+      idle:   { start: 0, end: 0, fps: 1 },
+      fire:   { start: 1, end: 2, fps: 14 },
+      reload: { start: 3, end: 5, fps: 8 },
+    },
+    muzzleOffset: { x: 0, y: 0, z: 0 },
+    planeSize: { w: 0.72, h: 0.72 },
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -137,6 +148,20 @@ const WEAPON_DEFS = {
     spread: 0.01,
     spritesheet: SPRITESHEET_CONFIG.raygun,
   },
+  katana: {
+    name: 'KATANA',
+    magSize: 1,
+    maxReserve: 0,
+    cooldown: 0.55,
+    reloadTime: 0,
+    damage: 260,
+    headDamage: 420,
+    pellets: 1,
+    spread: 0,
+    range: 3.4,
+    melee: true,
+    spritesheet: SPRITESHEET_CONFIG.katana,
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -146,7 +171,7 @@ const raycaster = new THREE.Raycaster();
 const VIEWMODEL_REST = new THREE.Vector3(0.28, -0.28, -0.55);
 
 let currentWeapon = 'pistol';
-let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false };
+let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true };
 
 let ammoState = {
   pistol:   { current: 8,  reserve: 56 },
@@ -154,6 +179,7 @@ let ammoState = {
   smg:      { current: 30, reserve: 120 },
   aliengun: { current: 10, reserve: 30 },
   raygun:   { current: 6,  reserve: 18 },
+  katana:   { current: 1,  reserve: 0 },
 };
 
 let lastShotTime = 0;
@@ -184,6 +210,7 @@ export function getAmmoState() {
     reloadTime: def.reloadTime,
     weapon: currentWeapon,
     weaponName: def.name,
+    melee: !!def.melee,
   };
 }
 
@@ -266,6 +293,7 @@ export function lowerWeaponBriefly() {
 
 export function refillAmmoSilent() {
   const def = WEAPON_DEFS[currentWeapon];
+  if (def.melee) return;
   const ammo = ammoState[currentWeapon];
   ammo.reserve = def.maxReserve;
   if (ammo.current < def.magSize) {
@@ -367,7 +395,7 @@ export function initWeapon() {
 
 export function resetWeapon() {
   currentWeapon = 'pistol';
-  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false };
+  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true };
   for (const [type, def] of Object.entries(WEAPON_DEFS)) {
     ammoState[type].current = def.magSize;
     ammoState[type].reserve = def.maxReserve;
@@ -398,6 +426,7 @@ function onKeyDown(e) {
     'Digit3': 'smg',
     'Digit4': 'aliengun',
     'Digit5': 'raygun',
+    'Digit6': 'katana',
   };
   const type = slotMap[e.code];
   if (type && ownedWeapons[type]) {
@@ -547,7 +576,7 @@ function onClick() {
   const def = WEAPON_DEFS[currentWeapon];
   const ammo = ammoState[currentWeapon];
 
-  if (ammo.current <= 0) {
+  if (!def.melee && ammo.current <= 0) {
     startReload();
     return;
   }
@@ -561,7 +590,7 @@ function onClick() {
 function shoot() {
   const def = WEAPON_DEFS[currentWeapon];
   const ammo = ammoState[currentWeapon];
-  ammo.current--;
+  if (!def.melee) ammo.current--;
 
   const camera = getCamera();
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -569,11 +598,11 @@ function shoot() {
   playShot(currentWeapon);
 
   // Muzzle flash
-  muzzleFlash.material.opacity = 1;
-  muzzleTimer = currentWeapon === 'shotgun' ? 0.10 : 0.06;
+  muzzleFlash.material.opacity = def.melee ? 0 : 1;
+  muzzleTimer = def.melee ? 0 : currentWeapon === 'shotgun' ? 0.10 : 0.06;
 
   // Recoil
-  recoilTimer = currentWeapon === 'shotgun' ? 0.18 : 0.12;
+  recoilTimer = def.melee ? 0.22 : currentWeapon === 'shotgun' ? 0.18 : 0.12;
 
   // Fire animation
   const cfg = def.spritesheet;
@@ -596,7 +625,7 @@ function shoot() {
     }
     spreadVec.normalize();
     raycaster.set(camera.position, spreadVec);
-    raycaster.far = 150;
+    raycaster.far = def.range || 150;
 
     const hit = checkShot(raycaster);
     if (hit) {
@@ -614,7 +643,7 @@ function shoot() {
 
   if (anyHit) showHitMarker(anyKill, anyHead);
 
-  if (ammo.current === 0 && ammo.reserve > 0) startReload();
+  if (!def.melee && ammo.current === 0 && ammo.reserve > 0) startReload();
 }
 
 // ═══════════════════════════════════════════════════════════════

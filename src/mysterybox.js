@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { getScene } from './scene.js';
 import { getPlayerPosition } from './player.js';
 import { gameState } from './game-state.js';
-import { getOwnedWeapons, unlockWeaponForBox, getCurrentWeapon, lowerWeaponBriefly } from './weapon.js';
+import { getOwnedWeapons, unlockWeaponForBox, lowerWeaponBriefly } from './weapon.js';
 import { createCelMaterial } from './celshade.js';
 
 const BOX_POS = new THREE.Vector3(-18, 0, -24);
@@ -11,7 +11,14 @@ const BOX_COST = 1200;
 const BOX_APPEAR_ROUND = 3;
 
 // Weapons the box can give (excludes pistol)
-const BOX_WEAPONS = ['shotgun', 'smg', 'aliengun', 'raygun'];
+const BOX_WEAPONS = ['shotgun', 'smg', 'aliengun', 'raygun', 'katana'];
+const WEAPON_LABELS = {
+  shotgun: 'SHOTGUN',
+  smg: 'SMG',
+  aliengun: 'ALIEN GUN',
+  raygun: 'RAYGUN',
+  katana: 'KATANA',
+};
 
 let boxGroup = null;
 let nearBox = false;
@@ -22,6 +29,8 @@ let boxState = 'closed';  // 'closed' | 'opening' | 'revealing' | 'cooldown'
 let boxTimer = 0;
 let revealedWeapon = null;
 let jinglePlayed = false;
+let boxMessage = '';
+let boxMessageTimer = 0;
 
 // Particles for reveal
 let revealParticles = [];
@@ -105,6 +114,8 @@ function onKeyDown(e) {
   if (available.length === 0) return; // All weapons owned
 
   gameState.points -= BOX_COST;
+  boxMessage = 'A ABRIR...';
+  boxMessageTimer = REVEAL_DURATION;
   activateBox(available);
 }
 
@@ -162,6 +173,7 @@ export function updateMysteryBox(delta) {
   if (!boxGroup || !boxLight) return;
 
   pulseTime += delta;
+  boxMessageTimer = Math.max(0, boxMessageTimer - delta);
 
   // Only visible from round 3+
   const visible = gameState.round >= BOX_APPEAR_ROUND;
@@ -209,6 +221,8 @@ export function updateMysteryBox(delta) {
       if (revealedWeapon) {
         unlockWeaponForBox(revealedWeapon);
         lowerWeaponBriefly();
+        boxMessage = `RECEBESTE ${WEAPON_LABELS[revealedWeapon] || revealedWeapon.toUpperCase()}`;
+        boxMessageTimer = 2.2;
       }
     }
   } else if (boxState === 'cooldown') {
@@ -262,3 +276,4 @@ export function isNearMysteryBox() { return nearBox && boxState === 'closed'; }
 export function getBoxCost() { return BOX_COST; }
 export function getBoxState() { return boxState; }
 export function getRevealedWeapon() { return revealedWeapon; }
+export function getBoxMessage() { return boxMessageTimer > 0 ? boxMessage : ''; }

@@ -1,4 +1,5 @@
 const POWERUP_DURATION = 30;
+const LIFE_REGEN_DELAY = 5;
 
 export const gameState = {
   state: 'menu',
@@ -35,7 +36,7 @@ export const gameState = {
     this.nukeQueued = false;
     this.instaKill = false;
     this.doublePoints = false;
-    this.lifeRegenTimer = 5;
+    this.lifeRegenTimer = LIFE_REGEN_DELAY;
     this._beginRound();
   },
 
@@ -113,12 +114,12 @@ export const gameState = {
       }
     }
 
-    // Life regen: +1 heart every 60s up to max
+    // Life regen: +1 heart every 5s up to max
     if (this.lives < this.MAX_LIVES) {
       this.lifeRegenTimer -= delta;
       if (this.lifeRegenTimer <= 0) {
         this.lives = Math.min(this.lives + 1, this.MAX_LIVES);
-        this.lifeRegenTimer = 5;
+        this.lifeRegenTimer = LIFE_REGEN_DELAY;
       }
     }
 
