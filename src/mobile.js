@@ -275,8 +275,8 @@ export class MobileControls {
       .fire-btn {
         width: ${FIRE_SIZE}px; height: ${FIRE_SIZE}px;
         border-radius: 50%;
-        right: 8%;
-        bottom: 12%;
+        right: 6%;
+        bottom: 5%;
         background: rgba(200,0,0,0.5);
         border: 2px solid rgba(255,60,60,0.6);
         color: #fff;
@@ -291,12 +291,13 @@ export class MobileControls {
       }
 
       .action-btn {
-        width: 46px; height: 46px;
+        width: 52px; height: 52px;
         border-radius: 50%;
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.2);
-        color: #ccc;
-        font-size: 1.1rem;
+        background: rgba(255,255,255,0.12);
+        border: 2px solid rgba(255,255,255,0.25);
+        color: #ddd;
+        font-size: 1.2rem;
+        font-weight: bold;
       }
       .action-btn:active {
         background: rgba(255,255,255,0.25);
@@ -304,12 +305,12 @@ export class MobileControls {
       }
 
       #btn-reload {
-        right: calc(8% + ${FIRE_SIZE}px + 12px);
-        bottom: calc(12% + ${FIRE_SIZE/2}px - 23px);
+        right: calc(6% + ${FIRE_SIZE}px + 14px);
+        bottom: calc(5% + ${FIRE_SIZE/2}px - 26px);
       }
       #btn-interact {
-        right: calc(8% + ${FIRE_SIZE}px + 66px);
-        bottom: calc(12% + ${FIRE_SIZE/2}px - 23px);
+        right: calc(6% + ${FIRE_SIZE}px + 74px);
+        bottom: calc(5% + ${FIRE_SIZE/2}px - 26px);
       }
 
       /* ── WEAPON SLOTS (top edge) ── */
