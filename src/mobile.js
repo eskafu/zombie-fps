@@ -260,8 +260,8 @@ export class MobileControls {
       <!-- Reload button (above fire) -->
       <button id="btn-reload" class="mobile-btn action-btn">↻</button>
 
-      <!-- Interact button (left of reload) -->
-      <button id="btn-interact" class="mobile-btn action-btn">E</button>
+      <!-- Interact button (hidden unless near station/box) -->
+      <button id="btn-interact" class="mobile-btn action-btn" style="display:none">E</button>
 
       <!-- Weapon slots (top edge) -->
       <div id="mobile-weapons"></div>
@@ -503,6 +503,7 @@ export class MobileControls {
     this._lastInteractLabel = text;
     btn.textContent = text;
     btn.classList.toggle('contextual', !!label);
+    btn.style.display = label ? '' : 'none';
   }
 
   setWeaponSwitchCallback(fn) { this._onWeaponSwitch = fn; }
