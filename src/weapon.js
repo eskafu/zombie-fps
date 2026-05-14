@@ -184,7 +184,7 @@ let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, 
 
 let ammoState = {
   pistol:   { current: 8,  reserve: 56 },
-  shotgun:  { current: 2,  reserve: 20 },
+  shotgun:  { current: 4,  reserve: 20 },
   smg:      { current: 30, reserve: 120 },
   aliengun: { current: 10, reserve: 30 },
   raygun:   { current: 6,  reserve: 18 },
