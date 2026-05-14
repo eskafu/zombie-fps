@@ -20,9 +20,13 @@ const PLAYER_SPEED = 8;
 const SPRINT_MULTIPLIER = 1.6;
 const BOUNDARY = 48;
 
-// Manual camera rotation for mobile
+// Manual camera rotation for mobile.
+// Look joystick returns accumulated pixel-delta per frame. Convert to radians
+// with per-pixel sensitivity. Pitch is intentionally slower than yaw — most
+// players want fast horizontal scanning but find a 1:1 vertical too jumpy.
 const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-const MOBILE_LOOK_SPEED = 0.07;
+const MOBILE_YAW_SENSITIVITY   = 0.0055;  // radians per pixel
+const MOBILE_PITCH_SENSITIVITY = 0.0038;
 const PI_2 = Math.PI / 2 - 0.001;
 
 const _mobile = isMobile();
@@ -91,12 +95,12 @@ export function updatePlayer(delta) {
     direction.z = move.z;
     sprinting = mobileInput.isSprinting();
 
-    // Manual camera rotation from look joystick
+    // Manual camera rotation from look joystick — apply pixel delta directly.
     const look = mobileInput.getLookDelta();
     if (look.x !== 0 || look.y !== 0) {
       euler.setFromQuaternion(getCamera().quaternion, 'YXZ');
-      euler.y -= look.x * MOBILE_LOOK_SPEED * 60 * delta; // yaw
-      euler.x -= look.y * MOBILE_LOOK_SPEED * 60 * delta; // pitch
+      euler.y -= look.x * MOBILE_YAW_SENSITIVITY;
+      euler.x -= look.y * MOBILE_PITCH_SENSITIVITY;
       euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
       getCamera().quaternion.setFromEuler(euler);
     }

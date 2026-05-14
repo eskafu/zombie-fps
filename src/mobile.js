@@ -5,12 +5,33 @@
 const JOYSTICK_SIZE = 140;     // move joystick diameter
 const THUMB_SIZE = 60;         // thumb diameter
 const FIRE_SIZE = 85;          // fire button diameter
-const LOOK_SENSITIVITY = 5;    // divisor for look delta (lower = faster)
 
 // ── Mobile detection ──
+// Detect touch devices including modern iPads (which report as Mac).
 export function isMobile() {
-  return ('ontouchstart' in window && navigator.maxTouchPoints > 0)
-      || (window.innerWidth <= 1024 && 'ontouchstart' in window);
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  // iPadOS 13+ Safari pretends to be Mac. Multi-touch on a "Mac" = iPad.
+  const isIpadPretendingMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  const uaMobile = /iPhone|iPad|iPod|Android|Mobile|Tablet/i.test(ua);
+  return uaMobile || isIpadPretendingMac || (hasTouch && window.innerWidth <= 1024);
+}
+
+// ── Haptic helper ──
+export function haptic(ms = 15) {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try { navigator.vibrate(ms); } catch (e) { /* ignore */ }
+  }
+}
+
+// ── Orientation lock helper (best effort; many browsers reject) ──
+export function lockLandscape() {
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
+  } catch (e) { /* ignore */ }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -22,8 +43,12 @@ class VirtualJoystick {
     if (!this.container) return;
 
     this.relative = opts.relative || false;
-    this.noVisual = opts.noVisual || false;    // skip base circle + thumb (pure touch area)
+    this.noVisual = opts.noVisual || false;
+    this.floating = opts.floating || false;   // base spawns at touch point
+    this.deadzone = opts.deadzone ?? 0;       // 0..1 normalized
     this.value = { x: 0, y: 0 };
+    this.pendingDx = 0;
+    this.pendingDy = 0;
     this.active = false;
     this.touchId = null;
     this.baseX = 0;
@@ -31,17 +56,22 @@ class VirtualJoystick {
     this.lastX = 0;
     this.lastY = 0;
 
-    // Only add visual joystick elements if not a pure touch area
+    this.container.style.touchAction = 'none';
+    this.container.style.pointerEvents = 'auto';
+
     if (!this.noVisual) {
-      this.container.style.cssText = `
-        position: fixed;
+      // Visual joystick is a child element so we can move it on the container.
+      this.base = document.createElement('div');
+      this.base.style.cssText = `
+        position: absolute;
         width: ${JOYSTICK_SIZE}px; height: ${JOYSTICK_SIZE}px;
         border-radius: 50%;
         background: rgba(255,255,255,0.08);
-        border: 2px solid rgba(255,255,255,0.2);
-        touch-action: none;
-        pointer-events: auto;
-        z-index: 22;
+        border: 2px solid rgba(255,255,255,0.22);
+        pointer-events: none;
+        ${this.floating ? 'opacity: 0; transition: opacity 0.12s;' : ''}
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
       `;
 
       this.thumb = document.createElement('div');
@@ -49,21 +79,19 @@ class VirtualJoystick {
         position: absolute;
         width: ${THUMB_SIZE}px; height: ${THUMB_SIZE}px;
         border-radius: 50%;
-        background: rgba(255,255,255,0.2);
-        border: 2px solid rgba(255,255,255,0.4);
+        background: rgba(255,255,255,0.22);
+        border: 2px solid rgba(255,255,255,0.45);
         top: 50%; left: 50%;
         transform: translate(-50%, -50%);
         pointer-events: none;
       `;
-      this.container.appendChild(this.thumb);
+      this.base.appendChild(this.thumb);
+      this.container.appendChild(this.base);
     } else {
-      // Pure touch area — use container's own CSS
-      this.container.style.touchAction = 'none';
-      this.container.style.pointerEvents = 'auto';
+      this.base = null;
       this.thumb = null;
     }
 
-    // Events
     this.container.addEventListener('touchstart', (e) => this._onStart(e), { passive: false });
     this.container.addEventListener('touchmove',  (e) => this._onMove(e),  { passive: false });
     this.container.addEventListener('touchend',   (e) => this._onEnd(e),   { passive: false });
@@ -77,13 +105,25 @@ class VirtualJoystick {
     this.touchId = t.identifier;
     this.active = true;
 
-    const rect = this.container.getBoundingClientRect();
-    this.baseX = rect.left + rect.width / 2;
-    this.baseY = rect.top + rect.height / 2;
-    this.lastX = this.baseX;
-    this.lastY = this.baseY;
+    if (this.floating && this.base) {
+      // Spawn base at the touch point (in container-local coords).
+      const rect = this.container.getBoundingClientRect();
+      this.base.style.left = `${t.clientX - rect.left}px`;
+      this.base.style.top  = `${t.clientY - rect.top}px`;
+      this.base.style.transform = 'translate(-50%, -50%)';
+      this.base.style.opacity = '1';
+      this.baseX = t.clientX;
+      this.baseY = t.clientY;
+    } else if (!this.relative) {
+      const rect = this.container.getBoundingClientRect();
+      this.baseX = rect.left + rect.width / 2;
+      this.baseY = rect.top + rect.height / 2;
+    }
 
-    this._updateThumb(t.clientX, t.clientY);
+    this.lastX = t.clientX;
+    this.lastY = t.clientY;
+
+    if (!this.relative) this._updateThumb(t.clientX, t.clientY);
   }
 
   _onMove(e) {
@@ -105,13 +145,8 @@ class VirtualJoystick {
         this.touchId = null;
         this.value.x = 0;
         this.value.y = 0;
-        if (this.thumb) {
-          this.thumb.style.transform = 'translate(-50%, -50%)';
-        }
-        if (this.relative) {
-          this.lastX = this.baseX;
-          this.lastY = this.baseY;
-        }
+        if (this.thumb) this.thumb.style.transform = 'translate(-50%, -50%)';
+        if (this.floating && this.base) this.base.style.opacity = '0';
         return;
       }
     }
@@ -119,41 +154,45 @@ class VirtualJoystick {
 
   _updateThumb(clientX, clientY) {
     if (this.relative) {
-      // Trackpad-style: delta from last position
       const dx = clientX - this.lastX;
       const dy = clientY - this.lastY;
       this.lastX = clientX;
       this.lastY = clientY;
-      this.value.x = Math.max(-1, Math.min(1, dx / LOOK_SENSITIVITY));
-      this.value.y = Math.max(-1, Math.min(1, dy / LOOK_SENSITIVITY));
-      if (this.thumb) {
-        this.thumb.style.transform = 'translate(-50%, -50%)';
-      }
-    } else {
-      // Absolute joystick
-      const dx = clientX - this.baseX;
-      const dy = clientY - this.baseY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const maxDist = JOYSTICK_SIZE / 2 - THUMB_SIZE / 2;
-      const clamped = Math.min(dist, maxDist);
-
-      if (dist > 0) {
-        const nx = dx / dist;
-        const ny = dy / dist;
-        const ratio = clamped / maxDist;
-        this.value.x = nx * ratio;
-        this.value.y = ny * ratio;
-        if (this.thumb) {
-          this.thumb.style.transform = `translate(calc(-50% + ${nx * clamped}px), calc(-50% + ${ny * clamped}px))`;
-        }
-      } else {
-        this.value.x = 0;
-        this.value.y = 0;
-        if (this.thumb) {
-          this.thumb.style.transform = 'translate(-50%, -50%)';
-        }
-      }
+      this.pendingDx += dx;
+      this.pendingDy += dy;
+      return;
     }
+
+    const dx = clientX - this.baseX;
+    const dy = clientY - this.baseY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = JOYSTICK_SIZE / 2 - THUMB_SIZE / 2;
+    const clamped = Math.min(dist, maxDist);
+
+    if (dist === 0) {
+      this.value.x = 0;
+      this.value.y = 0;
+      if (this.thumb) this.thumb.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const ratio = clamped / maxDist;
+    // Linear with dead-zone: small jitter doesn't produce input, then linear ramp.
+    const adj = ratio < this.deadzone ? 0 : (ratio - this.deadzone) / (1 - this.deadzone);
+    this.value.x = nx * adj;
+    this.value.y = ny * adj;
+    if (this.thumb) {
+      this.thumb.style.transform = `translate(calc(-50% + ${nx * clamped}px), calc(-50% + ${ny * clamped}px))`;
+    }
+  }
+
+  consumeDelta() {
+    const d = { x: this.pendingDx, y: this.pendingDy };
+    this.pendingDx = 0;
+    this.pendingDy = 0;
+    return d;
   }
 
   destroy() {
@@ -174,35 +213,27 @@ export class MobileControls {
     this.firePressed = false;
     this.reloadPressed = false;
     this.interactPressed = false;
-    this.weaponSlots = [];
-    this._fireInterval = null;
-    this._autoReload = true; // auto-reload when empty on mobile
+    this._lastSlotsKey = '';  // dirty-check signature for weapon slots
+    this._lastInteractLabel = '';
 
     this._buildUI();
   }
 
   _buildUI() {
-    // Prevent all default touch behaviors globally on mobile
-    document.addEventListener('touchstart', (e) => {
+    // Prevent default touch behaviour outside form controls.
+    const blockTouch = (e) => {
       const tag = e.target.tagName;
       if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
       e.preventDefault();
-    }, { passive: false });
-    document.addEventListener('touchmove', (e) => {
-      const tag = e.target.tagName;
-      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
-      e.preventDefault();
-    }, { passive: false });
-    document.addEventListener('touchend', (e) => {
-      const tag = e.target.tagName;
-      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
-      e.preventDefault();
-    }, { passive: false });
+    };
+    document.addEventListener('touchstart', blockTouch, { passive: false });
+    document.addEventListener('touchmove',  blockTouch, { passive: false });
+    document.addEventListener('touchend',   blockTouch, { passive: false });
 
     const root = document.createElement('div');
     root.id = 'mobile-controls';
     root.innerHTML = `
-      <!-- Look area: large transparent overlay on the right side -->
+      <!-- Look area: full-screen overlay; joystick/buttons sit above and intercept first -->
       <div id="look-area"></div>
 
       <!-- Move joystick zone (bottom-left) -->
@@ -222,7 +253,6 @@ export class MobileControls {
     `;
     document.body.appendChild(root);
 
-    // Inject CSS
     const style = document.createElement('style');
     style.textContent = `
       #mobile-controls {
@@ -237,25 +267,25 @@ export class MobileControls {
       }
       body.mobile #mobile-controls { display: block; }
 
-      /* ── LOOK AREA: large semi-transparent overlay, right 45% ── */
+      /* ── LOOK AREA: full-screen; lower z so joystick/buttons (z:22) win ── */
       #look-area {
         position: fixed;
-        top: 0;
-        right: 0;
-        width: 45%;
-        height: 100%;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
         pointer-events: auto;
         touch-action: none;
-        z-index: 21;
-        background: radial-gradient(ellipse at 70% 50%, rgba(255,255,255,0.04) 0%, transparent 60%);
+        z-index: 20;
+        background: transparent;
       }
 
-      /* ── MOVE JOYSTICK ── */
+      /* ── MOVE JOYSTICK — floating: zone covers bottom-left, base spawns at touch ── */
       #move-joystick-zone {
         position: fixed;
-        left: 11%;
-        bottom: 13%;
-        transform: translate(-50%, 50%);
+        left: 0;
+        bottom: 0;
+        width: 45%;
+        height: 65%;
+        z-index: 21;
       }
 
       /* ── BUTTONS ── */
@@ -291,17 +321,27 @@ export class MobileControls {
       }
 
       .action-btn {
-        width: 52px; height: 52px;
-        border-radius: 50%;
+        min-width: 52px;
+        height: 52px;
+        padding: 0 10px;
+        border-radius: 26px;
         background: rgba(255,255,255,0.12);
         border: 2px solid rgba(255,255,255,0.25);
         color: #ddd;
-        font-size: 1.2rem;
+        font-size: 0.85rem;
         font-weight: bold;
+        letter-spacing: 1px;
+        white-space: nowrap;
       }
       .action-btn:active {
         background: rgba(255,255,255,0.25);
         transform: scale(0.9);
+      }
+      .action-btn.contextual {
+        background: rgba(40,180,80,0.35);
+        border-color: rgba(80,255,140,0.7);
+        color: #d8ffe6;
+        box-shadow: 0 0 20px rgba(60,255,120,0.25);
       }
 
       #btn-reload {
@@ -348,32 +388,32 @@ export class MobileControls {
     `;
     document.head.appendChild(style);
 
-    // Create joysticks
-    this.moveJoystick = new VirtualJoystick('move-joystick-zone', { relative: false });
-    // Look area is the large overlay — relative (trackpad) style, no visible thumb
-    this.lookJoystick = new VirtualJoystick('look-area', { relative: true, noVisual: true });
+    this.moveJoystick = new VirtualJoystick('move-joystick-zone', {
+      relative: false,
+      floating: true,   // base appears wherever the player touches in the zone
+      deadzone: 0.12,   // small dead-zone so tiny finger jitter doesn't drift
+    });
+    this.lookJoystick = new VirtualJoystick('look-area', {
+      relative: true,
+      noVisual: true,
+    });
 
-    // Fire button
     const fireBtn = document.getElementById('btn-fire');
     fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.firePressed = true; });
-    fireBtn.addEventListener('touchend', (e) => { e.preventDefault(); this.firePressed = false; });
-    fireBtn.addEventListener('touchcancel', (e) => { this.firePressed = false; });
-    // Also handle mouse for dev testing
-    fireBtn.addEventListener('mousedown', () => { this.firePressed = true; });
-    fireBtn.addEventListener('mouseup', () => { this.firePressed = false; });
+    fireBtn.addEventListener('touchend',   (e) => { e.preventDefault(); this.firePressed = false; });
+    fireBtn.addEventListener('touchcancel',()  => { this.firePressed = false; });
+    fireBtn.addEventListener('mousedown',  () => { this.firePressed = true; });
+    fireBtn.addEventListener('mouseup',    () => { this.firePressed = false; });
     fireBtn.addEventListener('mouseleave', () => { this.firePressed = false; });
 
-    // Reload button
     const reloadBtn = document.getElementById('btn-reload');
     reloadBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.reloadPressed = true; });
-    reloadBtn.addEventListener('touchend', () => { this.reloadPressed = false; });
+    reloadBtn.addEventListener('touchend',   () => { this.reloadPressed = false; });
 
-    // Interact button
     const interactBtn = document.getElementById('btn-interact');
     interactBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.interactPressed = true; });
-    interactBtn.addEventListener('touchend', () => { this.interactPressed = false; });
+    interactBtn.addEventListener('touchend',   () => { this.interactPressed = false; });
 
-    // Prevent accidental zoom/scroll on controls
     root.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
   }
 
@@ -381,39 +421,49 @@ export class MobileControls {
   getMovement() {
     if (!this.moveJoystick) return { x: 0, z: 0 };
     const v = this.moveJoystick.value;
-    // Screen Y is inverted (up = negative), but camera forward is -Z
-    // Push joystick UP → v.y negative → want direction.z negative → z = v.y
     return { x: v.x, z: v.y };
   }
 
-  // Sprint when joystick pushed > 85% in any direction
+  // Sprint only when pushing forward (within ~45° cone) at near-max deflection.
+  // Prevents accidental sprint when strafing or backpedaling at full stick.
   isSprinting() {
     if (!this.moveJoystick) return false;
     const v = this.moveJoystick.value;
-    return Math.sqrt(v.x * v.x + v.y * v.y) > 0.85;
+    const mag = Math.sqrt(v.x * v.x + v.y * v.y);
+    if (mag < 0.85) return false;
+    // Joystick y is screen-down-positive; pushing UP gives v.y < 0 → forward.
+    // atan2(x, -y): 0 = forward, ±π = back.
+    const angle = Math.atan2(v.x, -v.y);
+    return Math.abs(angle) < Math.PI / 4;
   }
 
+  // Returns accumulated pixel delta since last call. Frame-rate independent.
   getLookDelta() {
     if (!this.lookJoystick) return { x: 0, y: 0 };
-    return { x: this.lookJoystick.value.x, y: this.lookJoystick.value.y };
+    return this.lookJoystick.consumeDelta();
   }
 
   isFiring() { return this.firePressed; }
-  consumeReload() { const v = this.reloadPressed; this.reloadPressed = false; return v; }
-  consumeInteract() { const v = this.interactPressed; this.interactPressed = false; return v; }
+  consumeReload()  { const v = this.reloadPressed;   this.reloadPressed   = false; return v; }
+  consumeInteract(){ const v = this.interactPressed; this.interactPressed = false; return v; }
 
-  // ── Weapon slots ──
+  // ── Weapon slots (dirty-checked so we don't rebuild DOM every frame) ──
   updateWeaponSlots(owned, current) {
     const container = document.getElementById('mobile-weapons');
     if (!container) return;
 
+    const ownedKeys = Object.keys(owned).filter(k => owned[k]).sort().join(',');
+    const key = `${ownedKeys}|${current}`;
+    if (key === this._lastSlotsKey) return;
+    this._lastSlotsKey = key;
+
     const slotDefs = [
-      { key: 'pistol', label: '🔫' },
-      { key: 'shotgun', label: '💥' },
-      { key: 'smg', label: '🔫🔥' },
+      { key: 'pistol',   label: '🔫' },
+      { key: 'shotgun',  label: '💥' },
+      { key: 'smg',      label: '🔫🔥' },
       { key: 'aliengun', label: '👽' },
-      { key: 'raygun', label: '☢️' },
-      { key: 'katana', label: '⚔️' },
+      { key: 'raygun',   label: '☢️' },
+      { key: 'katana',   label: '⚔️' },
     ];
 
     container.innerHTML = '';
@@ -431,9 +481,20 @@ export class MobileControls {
     }
   }
 
+  // ── Contextual label for the "E" button (e.g. "AMMO 500", "BOX 1200") ──
+  setInteractLabel(label) {
+    const btn = document.getElementById('btn-interact');
+    if (!btn) return;
+    const text = label || 'E';
+    if (text === this._lastInteractLabel) return;
+    this._lastInteractLabel = text;
+    btn.textContent = text;
+    btn.classList.toggle('contextual', !!label);
+  }
+
   setWeaponSwitchCallback(fn) { this._onWeaponSwitch = fn; }
-  setReloadCallback(fn) { this._onReload = fn; }
-  setInteractCallback(fn) { this._onInteract = fn; }
+  setReloadCallback(fn)       { this._onReload = fn; }
+  setInteractCallback(fn)     { this._onInteract = fn; }
 
   destroy() {
     const root = document.getElementById('mobile-controls');

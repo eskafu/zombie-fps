@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getCamera, getScene } from './scene.js';
-import { checkShot, damageZombie } from './zombie.js';
+import { checkShot, damageZombie, getZombies } from './zombie.js';
 import { playShot, playReloadSound } from './audio.js';
 import { gameState } from './game-state.js';
 import { showHitMarker } from './hud.js';
@@ -169,6 +169,15 @@ const WEAPON_DEFS = {
 // ═══════════════════════════════════════════════════════════════
 const raycaster = new THREE.Raycaster();
 const VIEWMODEL_REST = new THREE.Vector3(0.28, -0.28, -0.55);
+
+// Aim assist (touch input only). Snaps fire direction toward nearest zombie
+// inside a small cone around forward. Disabled by default for desktop.
+let aimAssistEnabled = false;
+const AIM_ASSIST_CONE = Math.cos(THREE.MathUtils.degToRad(7));  // ~7° half-angle
+const AIM_ASSIST_RANGE = 35;
+const AIM_ASSIST_BLEND = 0.55;  // 0 = no help, 1 = full snap
+
+export function setAimAssist(enabled) { aimAssistEnabled = !!enabled; }
 
 let currentWeapon = 'pistol';
 let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true };
@@ -624,6 +633,7 @@ function shoot() {
 
   const camera = getCamera();
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  if (aimAssistEnabled && !def.melee) applyAimAssist(camera, forward);
 
   playShot(currentWeapon);
 
@@ -674,6 +684,37 @@ function shoot() {
   if (anyHit) showHitMarker(anyKill, anyHead);
 
   if (!def.melee && ammo.current === 0 && ammo.reserve > 0) startReload();
+}
+
+// Bias `forward` toward the nearest zombie inside the assist cone.
+// Aims at chest height to avoid headshot misses going over the head.
+function applyAimAssist(camera, forward) {
+  const zombies = getZombies();
+  if (!zombies || zombies.length === 0) return;
+
+  const camPos = camera.position;
+  const toZ = new THREE.Vector3();
+  let best = null;
+  let bestDot = AIM_ASSIST_CONE;
+
+  for (const z of zombies) {
+    if (!z.alive) continue;
+    toZ.copy(z.mesh.position);
+    toZ.y += 1.4;  // chest, not feet
+    toZ.sub(camPos);
+    const dist = toZ.length();
+    if (dist > AIM_ASSIST_RANGE || dist < 0.01) continue;
+    toZ.multiplyScalar(1 / dist);
+    const dot = forward.dot(toZ);
+    if (dot > bestDot) {
+      bestDot = dot;
+      best = { dir: toZ.clone() };
+    }
+  }
+
+  if (best) {
+    forward.lerp(best.dir, AIM_ASSIST_BLEND).normalize();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════

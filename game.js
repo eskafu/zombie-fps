@@ -1,13 +1,13 @@
 import { gameState } from './src/game-state.js';
 import { initScene, render, updateAtmosphere } from './src/scene.js';
 import { initPlayer, updatePlayer, lock, isOnMobile, setMobileInput } from './src/player.js';
-import { initWeapon, updateWeapon, resetWeapon, fireOnce, startReloadMobile, switchWeaponMobile, getOwnedWeapons, getCurrentWeapon } from './src/weapon.js';
+import { initWeapon, updateWeapon, resetWeapon, fireOnce, startReloadMobile, switchWeaponMobile, getOwnedWeapons, getCurrentWeapon, setAimAssist } from './src/weapon.js';
 import { spawnInitialZombies, updateZombies, clearAllZombies } from './src/zombie.js';
 import { initHUD, updateHUD, showMenu, hideMenu, showGameOver, showBlood, updateBlood } from './src/hud.js';
 import { updatePowerups, clearAllPowerups } from './src/powerups.js';
-import { initAmmoStation, updateAmmoStation, tryBuyAmmo } from './src/ammostation.js';
-import { initMysteryBox, updateMysteryBox, tryActivateBox } from './src/mysterybox.js';
-import { MobileControls, isMobile } from './src/mobile.js';
+import { initAmmoStation, updateAmmoStation, tryBuyAmmo, isNearStation, getStationCost } from './src/ammostation.js';
+import { initMysteryBox, updateMysteryBox, tryActivateBox, isNearMysteryBox, getBoxCost } from './src/mysterybox.js';
+import { MobileControls, isMobile, lockLandscape } from './src/mobile.js';
 
 let lastTime = performance.now();
 let lastScore = 0;
@@ -42,18 +42,16 @@ function initMobile() {
   document.body.classList.add('mobile');
   mobileControls = new MobileControls();
   setMobileInput(mobileControls);
+  setAimAssist(true);
 
-  // Wire weapon switch
   mobileControls.setWeaponSwitchCallback((type) => {
     switchWeaponMobile(type);
   });
 
-  // Wire reload
   mobileControls.setReloadCallback(() => {
     startReloadMobile();
   });
 
-  // Wire interact (E button)
   mobileControls.setInteractCallback(() => {
     if (!tryBuyAmmo()) {
       tryActivateBox();
@@ -73,8 +71,9 @@ function startGame() {
   if (!isOnMobile()) {
     lock();
   } else {
-    // Request fullscreen on mobile to prevent browser chrome scroll/gestures
+    // Mobile: enter fullscreen + try to lock orientation to landscape.
     requestFullscreen();
+    lockLandscape();
   }
 
   // Update weapon slots on mobile
@@ -95,25 +94,31 @@ function requestFullscreen() {
 function updateMobileInput() {
   if (!mobileControls || !mobileControls.enabled) return;
 
-  // Fire button (held = continuous fire for auto/semi-auto)
   if (mobileControls.isFiring()) {
     fireOnce();
   }
 
-  // Reload button (one-shot)
   if (mobileControls.consumeReload()) {
     startReloadMobile();
   }
 
-  // Interact button (one-shot)
   if (mobileControls.consumeInteract()) {
     if (!tryBuyAmmo()) {
       tryActivateBox();
     }
   }
 
-  // Update weapon slots (refresh on weapon change)
+  // Slots rebuild is dirty-checked internally — cheap to call each frame.
   mobileControls.updateWeaponSlots(getOwnedWeapons(), getCurrentWeapon());
+
+  // Contextual label for "E" button so the player knows what it does.
+  let label = '';
+  if (isNearStation()) {
+    label = `AMMO ${getStationCost()}`;
+  } else if (isNearMysteryBox()) {
+    label = `BOX ${getBoxCost()}`;
+  }
+  mobileControls.setInteractLabel(label);
 }
 
 function gameLoop() {

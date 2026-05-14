@@ -4,6 +4,7 @@ import { getAmmoState, getCurrentWeapon, getOwnedWeapons } from './weapon.js';
 import { isNearStation, getStationCost, getStationMessage } from './ammostation.js';
 import { isNearMysteryBox, getBoxCost, getBoxMessage } from './mysterybox.js';
 import { getLeaderboard, submitScore } from './ranking.js';
+import { haptic } from './mobile.js';
 
 const elements = {};
 let bloodTimer = 0;
@@ -242,6 +243,11 @@ export function showHitMarker(killed, isHead) {
 
   // Expand crosshair on shot
   crosshairSpread = Math.min(CROSSHAIR_MAX_SPREAD, crosshairSpread + 8);
+
+  // Haptics: stronger pulse for kill, head > body for confirmation feel.
+  if (killed)      haptic(40);
+  else if (isHead) haptic(20);
+  else             haptic(10);
 }
 
 export function showMenu(lastScore) {
@@ -372,6 +378,7 @@ function escapeHtml(str) {
 export function showBlood() {
   bloodTimer = BLOOD_DURATION;
   if (elements.blood) elements.blood.style.opacity = '1';
+  haptic([30, 20, 30]);
 }
 
 export function updateBlood(delta) {
