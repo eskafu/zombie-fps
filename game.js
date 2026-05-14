@@ -84,10 +84,16 @@ function startGame() {
 
 function requestFullscreen() {
   const el = document.documentElement;
+  // Try standard API with navigationUI: 'hide' (hides browser chrome on mobile)
   if (el.requestFullscreen) {
-    el.requestFullscreen().catch(() => {});
+    el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {
+      // Fallback without options
+      el.requestFullscreen().catch(() => {});
+    });
   } else if (el.webkitRequestFullscreen) {
     el.webkitRequestFullscreen();
+  } else if (el.msRequestFullscreen) {
+    el.msRequestFullscreen();
   }
 }
 

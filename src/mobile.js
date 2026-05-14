@@ -234,16 +234,8 @@ export class MobileControls {
   }
 
   _buildUI() {
-    // Prevent default touch behaviour outside form controls.
-    // Only touchmove — touchstart preventDefault can break multi-touch on some
-    // mobile browsers (second finger events get cancelled).
-    // CSS touch-action: none on html/body/canvas handles the rest.
-    const blockTouch = (e) => {
-      const tag = e.target.tagName;
-      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
-      e.preventDefault();
-    };
-    document.addEventListener('touchmove',  blockTouch, { passive: false });
+    // CSS touch-action: none on html/body/canvas prevents scrolling/pull-to-refresh.
+    // No JS-level touch blockers needed — they can break multi-touch.
 
     const root = document.createElement('div');
     root.id = 'mobile-controls';
@@ -254,8 +246,8 @@ export class MobileControls {
       <!-- Move joystick zone (bottom-left) -->
       <div id="move-joystick-zone"></div>
 
-      <!-- Fire button (bottom-right, large) -->
-      <button id="btn-fire" class="mobile-btn fire-btn">🔫</button>
+      <!-- Fire button (bottom-right, large) — div avoids browser button quirks on held touch -->
+      <div id="btn-fire" class="mobile-btn fire-btn" role="button" aria-label="Disparar">🔫</div>
 
       <!-- Reload button (above fire) -->
       <button id="btn-reload" class="mobile-btn action-btn">↻</button>
@@ -328,8 +320,12 @@ export class MobileControls {
         font-size: 2.2rem;
         box-shadow: 0 0 25px rgba(255,0,0,0.3);
         transition: transform 0.08s;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
       }
-      .fire-btn:active {
+      .fire-btn:active,
+      .fire-btn.fire-pressed {
         background: rgba(255,30,30,0.75);
         box-shadow: 0 0 40px rgba(255,0,0,0.5);
         transform: scale(0.9);
@@ -414,12 +410,12 @@ export class MobileControls {
     });
 
     const fireBtn = document.getElementById('btn-fire');
-    fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.firePressed = true; });
-    fireBtn.addEventListener('touchend',   (e) => { e.preventDefault(); this.firePressed = false; });
-    fireBtn.addEventListener('touchcancel',()  => { this.firePressed = false; });
-    fireBtn.addEventListener('mousedown',  () => { this.firePressed = true; });
-    fireBtn.addEventListener('mouseup',    () => { this.firePressed = false; });
-    fireBtn.addEventListener('mouseleave', () => { this.firePressed = false; });
+    fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.firePressed = true; fireBtn.classList.add('fire-pressed'); });
+    fireBtn.addEventListener('touchend',   (e) => { e.preventDefault(); this.firePressed = false; fireBtn.classList.remove('fire-pressed'); });
+    fireBtn.addEventListener('touchcancel',()  => { this.firePressed = false; fireBtn.classList.remove('fire-pressed'); });
+    fireBtn.addEventListener('mousedown',  () => { this.firePressed = true; fireBtn.classList.add('fire-pressed'); });
+    fireBtn.addEventListener('mouseup',    () => { this.firePressed = false; fireBtn.classList.remove('fire-pressed'); });
+    fireBtn.addEventListener('mouseleave', () => { this.firePressed = false; fireBtn.classList.remove('fire-pressed'); });
 
     const reloadBtn = document.getElementById('btn-reload');
     reloadBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.reloadPressed = true; });
