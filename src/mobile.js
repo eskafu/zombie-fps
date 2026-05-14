@@ -190,9 +190,13 @@ export class MobileControls {
       e.preventDefault();
     }, { passive: false });
     document.addEventListener('touchmove', (e) => {
+      const tag = e.target.tagName;
+      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
       e.preventDefault();
     }, { passive: false });
     document.addEventListener('touchend', (e) => {
+      const tag = e.target.tagName;
+      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
       e.preventDefault();
     }, { passive: false });
 

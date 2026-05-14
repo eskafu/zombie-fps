@@ -14,18 +14,26 @@ let lastScore = 0;
 let mobileControls = null;
 
 function onStartButton() {
-  document.getElementById('start-button').addEventListener('click', (e) => {
+  const btn = document.getElementById('start-button');
+  const handler = (e) => {
     e.stopPropagation();
+    e.preventDefault();
     startGame();
-  });
+  };
+  btn.addEventListener('click', handler);
+  btn.addEventListener('touchstart', handler, { passive: false });
 }
 
 function onRestartButton() {
-  document.getElementById('restart-button').addEventListener('click', (e) => {
+  const btn = document.getElementById('restart-button');
+  const handler = (e) => {
     e.stopPropagation();
+    e.preventDefault();
     gameState.reset();
     showMenu(lastScore);
-  });
+  };
+  btn.addEventListener('click', handler);
+  btn.addEventListener('touchstart', handler, { passive: false });
 }
 
 function initMobile() {
