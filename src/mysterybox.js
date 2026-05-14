@@ -104,19 +104,26 @@ function onKeyDown(e) {
   if (e.code !== 'KeyE') return;
   if (gameState.state !== 'playing') return;
   if (!document.pointerLockElement) return;
-  if (!nearBox) return;
-  if (boxState !== 'closed') return;
-  if (gameState.points < BOX_COST) return;
+  tryActivateBox();
+}
+
+// Mobile-friendly (no pointerLock/key check)
+export function tryActivateBox() {
+  if (gameState.state !== 'playing') return false;
+  if (!nearBox) return false;
+  if (boxState !== 'closed') return false;
+  if (gameState.points < BOX_COST) return false;
 
   // Check if player already owns all weapons
   const owned = getOwnedWeapons();
   const available = BOX_WEAPONS.filter(w => !owned[w]);
-  if (available.length === 0) return; // All weapons owned
+  if (available.length === 0) return false; // All weapons owned
 
   gameState.points -= BOX_COST;
   boxMessage = 'A ABRIR...';
   boxMessageTimer = REVEAL_DURATION;
   activateBox(available);
+  return true;
 }
 
 function activateBox(available) {

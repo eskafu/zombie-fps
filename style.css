@@ -16,7 +16,7 @@ body {
     justify-content: center;
     align-items: center;
     background: rgba(0,0,0,0.85);
-    z-index: 10;
+    z-index: 30;
     text-align: center;
 }
 
@@ -345,4 +345,35 @@ button:hover { background: #ff2222; transform: scale(1.04); }
     font-size: 0.78rem;
     color: #aaa;
     margin-top: 4px;
+}
+
+/* ── MOBILE ADJUSTMENTS ── */
+body.mobile #crosshair {
+    display: none !important;
+}
+body.mobile #weapon-slots {
+    display: none !important;
+}
+body.mobile .instructions {
+    font-size: 0.8rem;
+    line-height: 1.7;
+}
+body.mobile #menu h1 {
+    font-size: 2rem;
+}
+body.mobile #hud-left,
+body.mobile #hud-right {
+    padding: 8px 12px;
+    min-width: 60px;
+}
+body.mobile .hud-value {
+    font-size: 1.2rem;
+}
+body.mobile #ammo-display {
+    bottom: 120px;
+    font-size: 1.4rem;
+}
+body.mobile #buy-prompt {
+    bottom: 30%;
+    font-size: 0.8rem;
 }

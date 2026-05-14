@@ -215,7 +215,8 @@ export function getAmmoState() {
 }
 
 export function getCurrentWeapon() { return currentWeapon; }
-export function getOwnedWeapons() { return ownedWeapons; }
+export function getOwnedWeapons() { return { ...ownedWeapons }; }
+export function getWeaponDefs() { return WEAPON_DEFS; }
 
 export function canBuyWeapon(type) {
   const def = WEAPON_DEFS[type];
@@ -585,6 +586,35 @@ function onClick() {
   if (now - lastShotTime < def.cooldown) return;
   lastShotTime = now;
   shoot();
+}
+
+// Mobile-friendly fire (no pointerLock check)
+export function fireOnce() {
+  if (gameState.state !== 'playing') return false;
+  if (isReloading) return false;
+
+  const def = WEAPON_DEFS[currentWeapon];
+  const ammo = ammoState[currentWeapon];
+
+  if (!def.melee && ammo.current <= 0) {
+    startReload();
+    return false;
+  }
+
+  const now = performance.now() / 1000;
+  if (now - lastShotTime < def.cooldown) return false;
+  lastShotTime = now;
+  shoot();
+  return true;
+}
+
+export function startReloadMobile() {
+  if (gameState.state !== 'playing') return;
+  startReload();
+}
+
+export function switchWeaponMobile(type) {
+  switchWeapon(type);
 }
 
 function shoot() {

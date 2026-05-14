@@ -1,15 +1,17 @@
 import { gameState } from './src/game-state.js';
 import { initScene, render, updateAtmosphere } from './src/scene.js';
-import { initPlayer, updatePlayer, lock } from './src/player.js';
-import { initWeapon, updateWeapon, resetWeapon } from './src/weapon.js';
+import { initPlayer, updatePlayer, lock, isOnMobile, setMobileInput } from './src/player.js';
+import { initWeapon, updateWeapon, resetWeapon, fireOnce, startReloadMobile, switchWeaponMobile, getOwnedWeapons, getCurrentWeapon } from './src/weapon.js';
 import { spawnInitialZombies, updateZombies, clearAllZombies } from './src/zombie.js';
 import { initHUD, updateHUD, showMenu, hideMenu, showGameOver, showBlood, updateBlood } from './src/hud.js';
 import { updatePowerups, clearAllPowerups } from './src/powerups.js';
-import { initAmmoStation, updateAmmoStation } from './src/ammostation.js';
-import { initMysteryBox, updateMysteryBox } from './src/mysterybox.js';
+import { initAmmoStation, updateAmmoStation, tryBuyAmmo } from './src/ammostation.js';
+import { initMysteryBox, updateMysteryBox, tryActivateBox } from './src/mysterybox.js';
+import { MobileControls, isMobile } from './src/mobile.js';
 
 let lastTime = performance.now();
 let lastScore = 0;
+let mobileControls = null;
 
 function onStartButton() {
   document.getElementById('start-button').addEventListener('click', (e) => {
@@ -26,6 +28,31 @@ function onRestartButton() {
   });
 }
 
+function initMobile() {
+  if (!isMobile()) return;
+
+  document.body.classList.add('mobile');
+  mobileControls = new MobileControls();
+  setMobileInput(mobileControls);
+
+  // Wire weapon switch
+  mobileControls.setWeaponSwitchCallback((type) => {
+    switchWeaponMobile(type);
+  });
+
+  // Wire reload
+  mobileControls.setReloadCallback(() => {
+    startReloadMobile();
+  });
+
+  // Wire interact (E button)
+  mobileControls.setInteractCallback(() => {
+    if (!tryBuyAmmo()) {
+      tryActivateBox();
+    }
+  });
+}
+
 function startGame() {
   clearAllZombies();
   clearAllPowerups();
@@ -34,7 +61,39 @@ function startGame() {
   hideMenu();
   spawnInitialZombies();
   lastTime = performance.now();
-  lock();
+
+  if (!isOnMobile()) {
+    lock();
+  }
+
+  // Update weapon slots on mobile
+  if (mobileControls) {
+    mobileControls.updateWeaponSlots(getOwnedWeapons(), getCurrentWeapon());
+  }
+}
+
+function updateMobileInput() {
+  if (!mobileControls || !mobileControls.enabled) return;
+
+  // Fire button (held = continuous fire for auto/semi-auto)
+  if (mobileControls.isFiring()) {
+    fireOnce();
+  }
+
+  // Reload button (one-shot)
+  if (mobileControls.consumeReload()) {
+    startReloadMobile();
+  }
+
+  // Interact button (one-shot)
+  if (mobileControls.consumeInteract()) {
+    if (!tryBuyAmmo()) {
+      tryActivateBox();
+    }
+  }
+
+  // Update weapon slots (refresh on weapon change)
+  mobileControls.updateWeaponSlots(getOwnedWeapons(), getCurrentWeapon());
 }
 
 function gameLoop() {
@@ -50,6 +109,7 @@ function gameLoop() {
   if (gameState.state === 'playing') {
     gameState.tick(delta);
     updatePlayer(delta);
+    updateMobileInput();
     updateZombies(delta, () => showBlood());
     updatePowerups(delta);
     updateAmmoStation(delta);
@@ -67,12 +127,14 @@ function gameLoop() {
   render();
 }
 
+// ── Init ──
 initScene();
 initPlayer();
 initWeapon();
 initAmmoStation();
 initMysteryBox();
 initHUD();
+initMobile();
 onStartButton();
 onRestartButton();
 
@@ -81,6 +143,20 @@ const bestRoundEl = document.getElementById('best-round');
 if (bestRoundEl) bestRoundEl.textContent = gameState.maxRound;
 const bestKillsEl = document.getElementById('best-kills');
 if (bestKillsEl) bestKillsEl.textContent = gameState.maxKills;
+
+// Update instructions for mobile
+if (isMobile()) {
+  const instructions = document.querySelector('.instructions');
+  if (instructions) {
+    instructions.innerHTML = `
+      <p>🎮 Joystick esquerdo - Mover</p>
+      <p>👆 Joystick direito - Olhar</p>
+      <p>🔫 Botão vermelho - Atirar</p>
+      <p>↻ - Recarregar &nbsp;|&nbsp; E - Interagir</p>
+      <p>⚔️ Botões em baixo - Trocar arma</p>
+    `;
+  }
+}
 
 showMenu(0);
 gameLoop();

@@ -60,14 +60,21 @@ function onKeyDown(e) {
   if (e.code !== 'KeyE') return;
   if (gameState.state !== 'playing') return;
   if (!document.pointerLockElement) return;
-  if (!nearStation) return;
-  if (gameState.points < AMMO_COST) return;
+  tryBuyAmmo();
+}
+
+// Mobile-friendly (no pointerLock/key check)
+export function tryBuyAmmo() {
+  if (gameState.state !== 'playing') return false;
+  if (!nearStation) return false;
+  if (gameState.points < AMMO_COST) return false;
 
   gameState.points -= AMMO_COST;
   refillAmmoSilent();
   lowerWeaponBriefly();
   stationMessage = 'MUNIÇÃO REPOSTA';
   stationMessageTimer = 1.5;
+  return true;
 }
 
 export function updateAmmoStation(delta) {
