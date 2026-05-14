@@ -168,6 +168,20 @@ export class MobileControls {
   }
 
   _buildUI() {
+    // Prevent all default touch behaviors globally on mobile
+    document.addEventListener('touchstart', (e) => {
+      // Allow touches on buttons and inputs
+      const tag = e.target.tagName;
+      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
+      e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('touchend', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+
     const root = document.createElement('div');
     root.id = 'mobile-controls';
     root.innerHTML = `

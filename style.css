@@ -4,6 +4,26 @@ body {
     font-family: 'Arial', sans-serif;
     background-color: #000;
     color: white;
+    /* Prevent scroll/zoom on mobile */
+    touch-action: none;
+    -webkit-overflow-scrolling: none;
+    overscroll-behavior: none;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+/* Prevent pull-to-refresh and overscroll on mobile */
+html {
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+    position: fixed;
+    touch-action: none;
+}
+
+canvas {
+    touch-action: none;
 }
 
 /* ── MENUS ── */

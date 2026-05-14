@@ -64,11 +64,23 @@ function startGame() {
 
   if (!isOnMobile()) {
     lock();
+  } else {
+    // Request fullscreen on mobile to prevent browser chrome scroll/gestures
+    requestFullscreen();
   }
 
   // Update weapon slots on mobile
   if (mobileControls) {
     mobileControls.updateWeaponSlots(getOwnedWeapons(), getCurrentWeapon());
+  }
+}
+
+function requestFullscreen() {
+  const el = document.documentElement;
+  if (el.requestFullscreen) {
+    el.requestFullscreen().catch(() => {});
+  } else if (el.webkitRequestFullscreen) {
+    el.webkitRequestFullscreen();
   }
 }
 
