@@ -98,7 +98,7 @@ const WEAPON_DEFS = {
   },
   shotgun: {
     name: 'SHOTGUN',
-    magSize: 2,
+    magSize: 4,
     maxReserve: 20,
     cooldown: 0.8,
     reloadTime: 2.2,
