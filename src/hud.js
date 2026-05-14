@@ -254,6 +254,7 @@ export function showMenu(lastScore) {
   if (elements.menu) elements.menu.style.display = 'flex';
   if (elements.hud) elements.hud.style.display = 'none';
   if (elements.gameOver) elements.gameOver.style.display = 'none';
+  document.body.classList.remove('game-active');
   if (elements.crosshair) elements.crosshair.style.display = 'none';
   if (elements.weaponSlots) elements.weaponSlots.style.display = 'none';
   if (elements.vignette) elements.vignette.style.opacity = '0';
@@ -268,6 +269,7 @@ export function hideMenu() {
   if (elements.menu) elements.menu.style.display = 'none';
   if (elements.hud) elements.hud.style.display = 'block';
   if (elements.gameOver) elements.gameOver.style.display = 'none';
+  document.body.classList.add('game-active');
   if (elements.crosshair) {
     elements.crosshair.style.display = 'block';
     elements.crosshair.style.width = CROSSHAIR_BASE_SIZE + 'px';
@@ -283,6 +285,7 @@ export function showGameOver(won) {
   if (elements.menu) elements.menu.style.display = 'none';
   if (elements.hud) elements.hud.style.display = 'none';
   if (elements.gameOver) elements.gameOver.style.display = 'flex';
+  document.body.classList.remove('game-active');
   if (elements.crosshair) elements.crosshair.style.display = 'none';
   if (elements.weaponSlots) elements.weaponSlots.style.display = 'none';
   if (elements.vignette) elements.vignette.style.opacity = '0';

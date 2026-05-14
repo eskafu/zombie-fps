@@ -26,12 +26,26 @@ export function haptic(ms = 15) {
 }
 
 // ── Orientation lock helper (best effort; many browsers reject) ──
+let _portraitWatcher = null;
+
 export function lockLandscape() {
+  // Try native API first (Android Chrome — only works in fullscreen)
   try {
     if (screen.orientation && screen.orientation.lock) {
       screen.orientation.lock('landscape').catch(() => {});
     }
   } catch (e) { /* ignore */ }
+
+  // Fallback: CSS portrait blocker via matchMedia (works everywhere)
+  if (!_portraitWatcher) {
+    const mq = window.matchMedia('(orientation: portrait)');
+    const update = () => {
+      document.body.classList.toggle('portrait', mq.matches);
+    };
+    mq.addEventListener('change', update);
+    update(); // check immediately
+    _portraitWatcher = mq;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
