@@ -235,14 +235,15 @@ export class MobileControls {
 
   _buildUI() {
     // Prevent default touch behaviour outside form controls.
+    // Only touchmove — touchstart preventDefault can break multi-touch on some
+    // mobile browsers (second finger events get cancelled).
+    // CSS touch-action: none on html/body/canvas handles the rest.
     const blockTouch = (e) => {
       const tag = e.target.tagName;
       if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
       e.preventDefault();
     };
-    document.addEventListener('touchstart', blockTouch, { passive: false });
     document.addEventListener('touchmove',  blockTouch, { passive: false });
-    document.addEventListener('touchend',   blockTouch, { passive: false });
 
     const root = document.createElement('div');
     root.id = 'mobile-controls';

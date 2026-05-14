@@ -25,8 +25,8 @@ const BOUNDARY = 48;
 // with per-pixel sensitivity. Pitch is intentionally slower than yaw — most
 // players want fast horizontal scanning but find a 1:1 vertical too jumpy.
 const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-const MOBILE_YAW_SENSITIVITY   = 0.0055;  // radians per pixel
-const MOBILE_PITCH_SENSITIVITY = 0.0038;
+const MOBILE_YAW_SENSITIVITY   = 0.0040;  // radians per pixel (tuned for less twitchy aim)
+const MOBILE_PITCH_SENSITIVITY = 0.0028;
 const PI_2 = Math.PI / 2 - 0.001;
 
 const _mobile = isMobile();
