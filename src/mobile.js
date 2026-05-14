@@ -281,11 +281,11 @@ export class MobileControls {
       }
       body.mobile #mobile-controls { display: block; }
 
-      /* ── LOOK AREA: full-screen; lower z so joystick/buttons (z:22) win ── */
+      /* ── LOOK AREA: right 55%, stops above buttons ── */
       #look-area {
         position: fixed;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
+        top: 0; left: 45%;
+        width: 55%; height: 100%;
         pointer-events: auto;
         touch-action: none;
         z-index: 20;
@@ -427,8 +427,6 @@ export class MobileControls {
     const interactBtn = document.getElementById('btn-interact');
     interactBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.interactPressed = true; });
     interactBtn.addEventListener('touchend',   () => { this.interactPressed = false; });
-
-    root.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
   }
 
   // ── Public read API ──
