@@ -41,7 +41,7 @@ class VirtualJoystick {
         border: 2px solid rgba(255,255,255,0.2);
         touch-action: none;
         pointer-events: auto;
-        z-index: 20;
+        z-index: 22;
       `;
 
       this.thumb = document.createElement('div');
@@ -251,8 +251,23 @@ export class MobileControls {
         pointer-events: auto;
         touch-action: none;
         z-index: 21;
-        /* subtle hint */
-        background: radial-gradient(ellipse at 70% 50%, rgba(255,255,255,0.04) 0%, transparent 70%);
+        background: radial-gradient(ellipse at 70% 50%, rgba(255,255,255,0.05) 0%, transparent 60%);
+      }
+      /* Look hint icon */
+      #look-area::after {
+        content: '👆';
+        position: absolute;
+        right: 30%;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.6rem;
+        opacity: 0.3;
+        pointer-events: none;
+        animation: lookHintPulse 3s ease-in-out infinite;
+      }
+      @keyframes lookHintPulse {
+        0%, 100% { opacity: 0.2; }
+        50% { opacity: 0.45; }
       }
 
       /* ── MOVE JOYSTICK ── */
@@ -272,7 +287,7 @@ export class MobileControls {
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 20;
+        z-index: 22;
         -webkit-tap-highlight-color: transparent;
         cursor: pointer;
       }
@@ -324,15 +339,16 @@ export class MobileControls {
         border: 1px solid rgba(255,200,0,0.25);
         color: #ffaa00;
         font-size: 1.2rem;
-        left: calc(11% - ${JOYSTICK_SIZE/2}px - 40px);
-        bottom: 15%;
-        z-index: 20;
+        left: 11%;
+        bottom: calc(13% + ${JOYSTICK_SIZE/2 + 35}px);
+        transform: translateX(-50%);
+        z-index: 22;
         pointer-events: auto;
         touch-action: manipulation;
       }
       .sprint-btn:active {
         background: rgba(255,200,0,0.3);
-        transform: scale(0.9);
+        transform: translateX(-50%) scale(0.9);
       }
 
       #btn-sprint {
@@ -342,8 +358,9 @@ export class MobileControls {
         border: 1px solid rgba(255,200,0,0.25);
         color: #ffaa00;
         font-size: 1.2rem;
-        left: calc(11% - ${JOYSTICK_SIZE/2}px - 40px);
-        bottom: 15%;
+        left: 11%;
+        bottom: calc(13% + ${JOYSTICK_SIZE/2 + 35}px);
+        transform: translateX(-50%);
       }
 
       /* ── WEAPON SLOTS (top edge) ── */
@@ -356,7 +373,7 @@ export class MobileControls {
         gap: 6px;
         pointer-events: auto;
         touch-action: manipulation;
-        z-index: 20;
+        z-index: 22;
         flex-wrap: wrap;
         justify-content: center;
         max-width: 90vw;
