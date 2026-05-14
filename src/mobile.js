@@ -2,9 +2,10 @@
 // MOBILE CONTROLS — Virtual Joysticks + Buttons
 // ═══════════════════════════════════════════════════════════════
 
-const JOYSTICK_SIZE = 140;     // base diameter in px
-const THUMB_SIZE = 70;         // thumb diameter in px
-const FIRE_SIZE = 80;          // fire button diameter in px
+const JOYSTICK_SIZE = 140;     // move joystick diameter
+const THUMB_SIZE = 60;         // thumb diameter
+const FIRE_SIZE = 85;          // fire button diameter
+const LOOK_SENSITIVITY = 5;    // divisor for look delta (lower = faster)
 
 // ── Mobile detection ──
 export function isMobile() {
@@ -20,7 +21,8 @@ class VirtualJoystick {
     this.container = document.getElementById(containerId);
     if (!this.container) return;
 
-    this.relative = opts.relative || false;  // relative = trackpad-style for look
+    this.relative = opts.relative || false;
+    this.noVisual = opts.noVisual || false;    // skip base circle + thumb (pure touch area)
     this.value = { x: 0, y: 0 };
     this.active = false;
     this.touchId = null;
@@ -29,30 +31,37 @@ class VirtualJoystick {
     this.lastX = 0;
     this.lastY = 0;
 
-    // Build DOM
-    this.container.style.cssText = `
-      position: fixed;
-      width: ${JOYSTICK_SIZE}px; height: ${JOYSTICK_SIZE}px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.08);
-      border: 2px solid rgba(255,255,255,0.2);
-      touch-action: none;
-      pointer-events: auto;
-      z-index: 20;
-    `;
+    // Only add visual joystick elements if not a pure touch area
+    if (!this.noVisual) {
+      this.container.style.cssText = `
+        position: fixed;
+        width: ${JOYSTICK_SIZE}px; height: ${JOYSTICK_SIZE}px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.08);
+        border: 2px solid rgba(255,255,255,0.2);
+        touch-action: none;
+        pointer-events: auto;
+        z-index: 20;
+      `;
 
-    this.thumb = document.createElement('div');
-    this.thumb.style.cssText = `
-      position: absolute;
-      width: ${THUMB_SIZE}px; height: ${THUMB_SIZE}px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.2);
-      border: 2px solid rgba(255,255,255,0.4);
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-    `;
-    this.container.appendChild(this.thumb);
+      this.thumb = document.createElement('div');
+      this.thumb.style.cssText = `
+        position: absolute;
+        width: ${THUMB_SIZE}px; height: ${THUMB_SIZE}px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        border: 2px solid rgba(255,255,255,0.4);
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      `;
+      this.container.appendChild(this.thumb);
+    } else {
+      // Pure touch area — use container's own CSS
+      this.container.style.touchAction = 'none';
+      this.container.style.pointerEvents = 'auto';
+      this.thumb = null;
+    }
 
     // Events
     this.container.addEventListener('touchstart', (e) => this._onStart(e), { passive: false });
@@ -96,7 +105,9 @@ class VirtualJoystick {
         this.touchId = null;
         this.value.x = 0;
         this.value.y = 0;
-        this.thumb.style.transform = 'translate(-50%, -50%)';
+        if (this.thumb) {
+          this.thumb.style.transform = 'translate(-50%, -50%)';
+        }
         if (this.relative) {
           this.lastX = this.baseX;
           this.lastY = this.baseY;
@@ -113,11 +124,11 @@ class VirtualJoystick {
       const dy = clientY - this.lastY;
       this.lastX = clientX;
       this.lastY = clientY;
-      // Scale delta to -1..1 range based on sensitivity
-      this.value.x = Math.max(-1, Math.min(1, dx / 12));
-      this.value.y = Math.max(-1, Math.min(1, dy / 12));
-      // Keep thumb centered (it's a trackpad, not a stick)
-      this.thumb.style.transform = 'translate(-50%, -50%)';
+      this.value.x = Math.max(-1, Math.min(1, dx / LOOK_SENSITIVITY));
+      this.value.y = Math.max(-1, Math.min(1, dy / LOOK_SENSITIVITY));
+      if (this.thumb) {
+        this.thumb.style.transform = 'translate(-50%, -50%)';
+      }
     } else {
       // Absolute joystick
       const dx = clientX - this.baseX;
@@ -132,11 +143,15 @@ class VirtualJoystick {
         const ratio = clamped / maxDist;
         this.value.x = nx * ratio;
         this.value.y = ny * ratio;
-        this.thumb.style.transform = `translate(calc(-50% + ${nx * clamped}px), calc(-50% + ${ny * clamped}px))`;
+        if (this.thumb) {
+          this.thumb.style.transform = `translate(calc(-50% + ${nx * clamped}px), calc(-50% + ${ny * clamped}px))`;
+        }
       } else {
         this.value.x = 0;
         this.value.y = 0;
-        this.thumb.style.transform = 'translate(-50%, -50%)';
+        if (this.thumb) {
+          this.thumb.style.transform = 'translate(-50%, -50%)';
+        }
       }
     }
   }
@@ -170,7 +185,6 @@ export class MobileControls {
   _buildUI() {
     // Prevent all default touch behaviors globally on mobile
     document.addEventListener('touchstart', (e) => {
-      // Allow touches on buttons and inputs
       const tag = e.target.tagName;
       if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
       e.preventDefault();
@@ -185,30 +199,30 @@ export class MobileControls {
     const root = document.createElement('div');
     root.id = 'mobile-controls';
     root.innerHTML = `
-      <!-- Left joystick zone -->
+      <!-- Look area: large transparent overlay on the right side -->
+      <div id="look-area"></div>
+
+      <!-- Move joystick zone (bottom-left) -->
       <div id="move-joystick-zone"></div>
 
-      <!-- Right joystick zone -->
-      <div id="look-joystick-zone"></div>
-
-      <!-- Fire button -->
+      <!-- Fire button (bottom-right, large) -->
       <button id="btn-fire" class="mobile-btn fire-btn">🔫</button>
 
-      <!-- Reload button -->
+      <!-- Reload button (above fire) -->
       <button id="btn-reload" class="mobile-btn action-btn">↻</button>
 
-      <!-- Interact button -->
+      <!-- Interact button (left of reload) -->
       <button id="btn-interact" class="mobile-btn action-btn">E</button>
 
-      <!-- Sprint button -->
-      <button id="btn-sprint" class="mobile-btn action-btn">⚡</button>
+      <!-- Sprint button (left of move joystick) -->
+      <button id="btn-sprint" class="mobile-btn sprint-btn">⚡</button>
 
-      <!-- Weapon slots -->
+      <!-- Weapon slots (top edge) -->
       <div id="mobile-weapons"></div>
     `;
     document.body.appendChild(root);
 
-    // Inject CSS for mobile controls
+    // Inject CSS
     const style = document.createElement('style');
     style.textContent = `
       #mobile-controls {
@@ -223,29 +237,37 @@ export class MobileControls {
       }
       body.mobile #mobile-controls { display: block; }
 
-      #move-joystick-zone {
+      /* ── LOOK AREA: large semi-transparent overlay, right 45% ── */
+      #look-area {
         position: fixed;
-        left: calc(3% + ${JOYSTICK_SIZE/2}px);
-        bottom: calc(5% + ${JOYSTICK_SIZE/2}px);
-        transform: translate(-50%, 50%);
-      }
-      #look-joystick-zone {
-        position: fixed;
-        right: calc(10% + ${JOYSTICK_SIZE/2}px);
-        bottom: calc(5% + ${JOYSTICK_SIZE/2}px);
-        transform: translate(50%, 50%);
+        top: 0;
+        right: 0;
+        width: 45%;
+        height: 100%;
+        pointer-events: auto;
+        touch-action: none;
+        z-index: 21;
+        /* subtle hint */
+        background: radial-gradient(ellipse at 70% 50%, rgba(255,255,255,0.04) 0%, transparent 70%);
       }
 
+      /* ── MOVE JOYSTICK ── */
+      #move-joystick-zone {
+        position: fixed;
+        left: 11%;
+        bottom: 13%;
+        transform: translate(-50%, 50%);
+      }
+
+      /* ── BUTTONS ── */
       .mobile-btn {
         position: fixed;
         pointer-events: auto;
         touch-action: manipulation;
         border: none;
-        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.4rem;
         z-index: 20;
         -webkit-tap-highlight-color: transparent;
         cursor: pointer;
@@ -253,61 +275,94 @@ export class MobileControls {
 
       .fire-btn {
         width: ${FIRE_SIZE}px; height: ${FIRE_SIZE}px;
-        right: 5%;
-        bottom: 22%;
-        background: rgba(200,0,0,0.55);
-        border: 2px solid rgba(255,60,60,0.7);
+        border-radius: 50%;
+        right: 8%;
+        bottom: 12%;
+        background: rgba(200,0,0,0.5);
+        border: 2px solid rgba(255,60,60,0.6);
         color: #fff;
-        font-size: 2rem;
-        box-shadow: 0 0 20px rgba(255,0,0,0.3);
+        font-size: 2.2rem;
+        box-shadow: 0 0 25px rgba(255,0,0,0.3);
+        transition: transform 0.08s;
       }
-      .fire-btn:active, .fire-btn.pressed {
-        background: rgba(255,30,30,0.8);
-        box-shadow: 0 0 35px rgba(255,0,0,0.6);
-        transform: scale(0.92);
+      .fire-btn:active {
+        background: rgba(255,30,30,0.75);
+        box-shadow: 0 0 40px rgba(255,0,0,0.5);
+        transform: scale(0.9);
       }
 
       .action-btn {
-        width: 50px; height: 50px;
+        width: 46px; height: 46px;
+        border-radius: 50%;
         background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.25);
+        border: 1px solid rgba(255,255,255,0.2);
         color: #ccc;
-        font-size: 1rem;
+        font-size: 1.1rem;
       }
       .action-btn:active {
         background: rgba(255,255,255,0.25);
+        transform: scale(0.9);
       }
 
       #btn-reload {
-        right: calc(5% + ${FIRE_SIZE}px + 20px);
-        bottom: calc(22% + ${FIRE_SIZE/2}px - 25px);
+        right: calc(8% + ${FIRE_SIZE}px + 12px);
+        bottom: calc(12% + ${FIRE_SIZE/2}px - 23px);
       }
       #btn-interact {
-        right: calc(5% + ${FIRE_SIZE}px + 80px);
-        bottom: calc(22% + ${FIRE_SIZE/2}px - 25px);
-      }
-      #btn-sprint {
-        right: calc(5% + ${FIRE_SIZE/2}px - 25px);
-        bottom: calc(22% + ${FIRE_SIZE}px + 15px);
+        right: calc(8% + ${FIRE_SIZE}px + 66px);
+        bottom: calc(12% + ${FIRE_SIZE/2}px - 23px);
       }
 
+      .sprint-btn {
+        width: 50px; height: 50px;
+        border-radius: 50%;
+        background: rgba(255,200,0,0.12);
+        border: 1px solid rgba(255,200,0,0.25);
+        color: #ffaa00;
+        font-size: 1.2rem;
+        left: calc(11% - ${JOYSTICK_SIZE/2}px - 40px);
+        bottom: 15%;
+        z-index: 20;
+        pointer-events: auto;
+        touch-action: manipulation;
+      }
+      .sprint-btn:active {
+        background: rgba(255,200,0,0.3);
+        transform: scale(0.9);
+      }
+
+      #btn-sprint {
+        width: 50px; height: 50px;
+        border-radius: 50%;
+        background: rgba(255,200,0,0.12);
+        border: 1px solid rgba(255,200,0,0.25);
+        color: #ffaa00;
+        font-size: 1.2rem;
+        left: calc(11% - ${JOYSTICK_SIZE/2}px - 40px);
+        bottom: 15%;
+      }
+
+      /* ── WEAPON SLOTS (top edge) ── */
       #mobile-weapons {
         position: fixed;
-        bottom: 5%;
+        top: 8px;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
-        gap: 8px;
+        gap: 6px;
         pointer-events: auto;
         touch-action: manipulation;
         z-index: 20;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 90vw;
       }
       .mobile-weapon-btn {
-        padding: 8px 14px;
+        padding: 6px 12px;
         background: rgba(0,0,0,0.55);
         border: 1px solid #444;
         color: #888;
-        font-size: 0.75rem;
+        font-size: 0.8rem;
         letter-spacing: 1px;
         border-radius: 6px;
         cursor: pointer;
@@ -317,14 +372,15 @@ export class MobileControls {
       .mobile-weapon-btn.active {
         color: #fff;
         border-color: #ffd700;
-        background: rgba(255,215,0,0.15);
+        background: rgba(255,215,0,0.18);
       }
     `;
     document.head.appendChild(style);
 
     // Create joysticks
     this.moveJoystick = new VirtualJoystick('move-joystick-zone', { relative: false });
-    this.lookJoystick = new VirtualJoystick('look-joystick-zone', { relative: true });
+    // Look area is the large overlay — relative (trackpad) style, no visible thumb
+    this.lookJoystick = new VirtualJoystick('look-area', { relative: true, noVisual: true });
 
     // Fire button
     const fireBtn = document.getElementById('btn-fire');
