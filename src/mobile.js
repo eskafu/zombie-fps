@@ -174,7 +174,6 @@ export class MobileControls {
     this.firePressed = false;
     this.reloadPressed = false;
     this.interactPressed = false;
-    this.sprintHeld = false;
     this.weaponSlots = [];
     this._fireInterval = null;
     this._autoReload = true; // auto-reload when empty on mobile
@@ -218,9 +217,6 @@ export class MobileControls {
       <!-- Interact button (left of reload) -->
       <button id="btn-interact" class="mobile-btn action-btn">E</button>
 
-      <!-- Sprint button (left of move joystick) -->
-      <button id="btn-sprint" class="mobile-btn sprint-btn">⚡</button>
-
       <!-- Weapon slots (top edge) -->
       <div id="mobile-weapons"></div>
     `;
@@ -251,23 +247,7 @@ export class MobileControls {
         pointer-events: auto;
         touch-action: none;
         z-index: 21;
-        background: radial-gradient(ellipse at 70% 50%, rgba(255,255,255,0.05) 0%, transparent 60%);
-      }
-      /* Look hint icon */
-      #look-area::after {
-        content: '👆';
-        position: absolute;
-        right: 30%;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 1.6rem;
-        opacity: 0.3;
-        pointer-events: none;
-        animation: lookHintPulse 3s ease-in-out infinite;
-      }
-      @keyframes lookHintPulse {
-        0%, 100% { opacity: 0.2; }
-        50% { opacity: 0.45; }
+        background: radial-gradient(ellipse at 70% 50%, rgba(255,255,255,0.04) 0%, transparent 60%);
       }
 
       /* ── MOVE JOYSTICK ── */
@@ -332,37 +312,6 @@ export class MobileControls {
         bottom: calc(12% + ${FIRE_SIZE/2}px - 23px);
       }
 
-      .sprint-btn {
-        width: 50px; height: 50px;
-        border-radius: 50%;
-        background: rgba(255,200,0,0.12);
-        border: 1px solid rgba(255,200,0,0.25);
-        color: #ffaa00;
-        font-size: 1.2rem;
-        left: 11%;
-        bottom: calc(13% + ${JOYSTICK_SIZE/2 + 35}px);
-        transform: translateX(-50%);
-        z-index: 22;
-        pointer-events: auto;
-        touch-action: manipulation;
-      }
-      .sprint-btn:active {
-        background: rgba(255,200,0,0.3);
-        transform: translateX(-50%) scale(0.9);
-      }
-
-      #btn-sprint {
-        width: 50px; height: 50px;
-        border-radius: 50%;
-        background: rgba(255,200,0,0.12);
-        border: 1px solid rgba(255,200,0,0.25);
-        color: #ffaa00;
-        font-size: 1.2rem;
-        left: 11%;
-        bottom: calc(13% + ${JOYSTICK_SIZE/2 + 35}px);
-        transform: translateX(-50%);
-      }
-
       /* ── WEAPON SLOTS (top edge) ── */
       #mobile-weapons {
         position: fixed;
@@ -423,12 +372,6 @@ export class MobileControls {
     interactBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.interactPressed = true; });
     interactBtn.addEventListener('touchend', () => { this.interactPressed = false; });
 
-    // Sprint button (hold)
-    const sprintBtn = document.getElementById('btn-sprint');
-    sprintBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.sprintHeld = true; });
-    sprintBtn.addEventListener('touchend', () => { this.sprintHeld = false; });
-    sprintBtn.addEventListener('touchcancel', () => { this.sprintHeld = false; });
-
     // Prevent accidental zoom/scroll on controls
     root.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
   }
@@ -442,13 +385,19 @@ export class MobileControls {
     return { x: v.x, z: v.y };
   }
 
+  // Sprint when joystick pushed > 85% in any direction
+  isSprinting() {
+    if (!this.moveJoystick) return false;
+    const v = this.moveJoystick.value;
+    return Math.sqrt(v.x * v.x + v.y * v.y) > 0.85;
+  }
+
   getLookDelta() {
     if (!this.lookJoystick) return { x: 0, y: 0 };
     return { x: this.lookJoystick.value.x, y: this.lookJoystick.value.y };
   }
 
   isFiring() { return this.firePressed; }
-  isSprinting() { return this.sprintHeld; }
   consumeReload() { const v = this.reloadPressed; this.reloadPressed = false; return v; }
   consumeInteract() { const v = this.interactPressed; this.interactPressed = false; return v; }
 
