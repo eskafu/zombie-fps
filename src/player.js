@@ -22,7 +22,7 @@ const BOUNDARY = 48;
 
 // Manual camera rotation for mobile
 const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-const MOBILE_LOOK_SPEED = 0.04;
+const MOBILE_LOOK_SPEED = 0.07;
 const PI_2 = Math.PI / 2 - 0.001;
 
 const _mobile = isMobile();

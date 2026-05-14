@@ -368,9 +368,6 @@ button:hover { background: #ff2222; transform: scale(1.04); }
 }
 
 /* ── MOBILE ADJUSTMENTS ── */
-body.mobile #crosshair {
-    display: none !important;
-}
 body.mobile #weapon-slots {
     display: none !important;
 }
