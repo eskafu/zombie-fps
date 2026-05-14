@@ -416,8 +416,9 @@ export class MobileControls {
   getMovement() {
     if (!this.moveJoystick) return { x: 0, z: 0 };
     const v = this.moveJoystick.value;
-    // Joystick Y is inverted (up = negative in screen space)
-    return { x: v.x, z: -v.y };
+    // Screen Y is inverted (up = negative), but camera forward is -Z
+    // Push joystick UP → v.y negative → want direction.z negative → z = v.y
+    return { x: v.x, z: v.y };
   }
 
   getLookDelta() {
