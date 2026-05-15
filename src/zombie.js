@@ -235,7 +235,9 @@ function spawnSingle(scene, playerPos) {
     deathTimer: 0,
     hp: gameState.getZombieHP(),
     flashTimer: 0,
-    isElite
+    isElite,
+    wanderAngle: Math.random() * Math.PI * 2,
+    stuckTimer: 0
   };
   zombies.push(zombie);
   gameState.onZombieSpawned();
@@ -392,10 +394,34 @@ export function updateZombies(delta, audioCallback) {
 
     if (isMoving) {
       dir.normalize();
+
+      // Wobble: slight lateral sway so they don't walk perfectly perpendicular into walls
+      z.wanderAngle += delta * 1.5;
+      const wobble = new THREE.Vector3(Math.cos(z.wanderAngle), 0, Math.sin(z.wanderAngle)).multiplyScalar(0.2);
+      dir.add(wobble).normalize();
+
       const speed = isLastZombie ? baseSpeed * 0.35 : z.isElite ? baseSpeed * 1.8 : baseSpeed;
       const step = speed * delta;
+      
+      const beforePos = z.mesh.position.clone();
       z.mesh.position.addScaledVector(dir, Math.min(step, dist));
       resolveCollision(z.mesh.position, 0.5);
+
+      // Stuck detection: if they didn't move much despite trying, they are likely against a wall
+      const movedDist = z.mesh.position.distanceTo(beforePos);
+      if (movedDist < step * 0.2) {
+        z.stuckTimer += delta;
+        if (z.stuckTimer > 0.4) {
+          // Apply a lateral sidestep to slide along the obstacle
+          const sidestep = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(speed * delta * 8);
+          if (z.wanderAngle % 2 > 1) sidestep.negate(); // pick a consistent side based on wander angle
+          z.mesh.position.add(sidestep);
+          resolveCollision(z.mesh.position, 0.5);
+          z.stuckTimer = 0;
+        }
+      } else {
+        z.stuckTimer = 0;
+      }
     }
 
     // Zombie separation — push apart from other zombies so they don't stack
