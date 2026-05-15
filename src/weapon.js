@@ -212,11 +212,11 @@ let currentWeapon = 'pistol';
 let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: false };
 
 let ammoState = {
-  pistol:   { current: 8,  reserve: 56 },
-  shotgun:  { current: 4,  reserve: 20 },
-  smg:      { current: 30, reserve: 120 },
-  aliengun: { current: 10, reserve: 30 },
-  raygun:   { current: 6,  reserve: 18 },
+  pistol:   { current: 10, reserve: 70 },
+  shotgun:  { current: 5,  reserve: 25 },
+  smg:      { current: 38, reserve: 150 },
+  aliengun: { current: 12, reserve: 38 },
+  raygun:   { current: 8,  reserve: 22 },
   katana:   { current: 1,  reserve: 0 },
   grapplegun: { current: 3, reserve: 0 },
 };
@@ -781,13 +781,14 @@ function shoot() {
     raycaster.far = def.range || 150;
 
     const hits = checkShotAll(raycaster);
-    if (hits.length > 0) {
+    if (hits && hits.length > 0) {
       anyHit = true;
       
       // Penetration: SMG hits max 2 zombies (the first and the one behind)
       const targets = def.penetration ? hits.slice(0, 2) : [hits[0]];
 
       for (const hit of targets) {
+        if (!hit) continue; // Safety check
         if (hit.isHead) anyHead = true;
         gameState.addPoints(10); // +10 per hit
         const damage = hit.isHead ? def.headDamage : def.damage;
