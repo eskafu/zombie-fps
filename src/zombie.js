@@ -4,8 +4,11 @@ import { getPlayerPosition } from './player.js';
 import { gameState } from './game-state.js';
 import { createCelMaterial, applyOutlineToMesh } from './celshade.js';
 import { makeGrungeMaterial } from './textures.js';
-import { tryDropPowerup } from './powerups.js';
+import { tryDropPowerup, forceDropMaxAmmo } from './powerups.js';
 import { playZombieGrowl } from './audio.js';
+
+const loader = new THREE.TextureLoader();
+const dogTexture = loader.load('assets/zombies/dog.png');
 
 const zombies = [];
 const particles = [];
@@ -214,28 +217,75 @@ export function spawnInitialZombies() {
   }
 }
 
+function createDogMesh() {
+  const mesh = new THREE.Group();
+  
+  // Use a sprite for the dog
+  const mat = new THREE.SpriteMaterial({ 
+    map: dogTexture, 
+    color: 0xffffff,
+    transparent: true 
+  });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.4, 0.9, 1.0);
+  sprite.position.y = 0.45; // Low to ground
+  mesh.add(sprite);
+  
+  // Red glowing aura
+  const light = new THREE.PointLight(0xff3300, 1.5, 4);
+  light.position.y = 0.5;
+  mesh.add(light);
+  
+  mesh.userData.isDog = true;
+  mesh.userData.sprite = sprite;
+  return mesh;
+}
+
 function spawnSingle(scene, playerPos) {
   if (zombies.length >= MAX_ZOMBIES) return null;
   if (!gameState.canSpawnMore()) return null;
 
-  const isElite = gameState.round >= 5 && Math.random() < 0.20;
-  const { mesh, mat } = createZombieMesh(isElite);
+  const isDogRound = gameState.isDogRound;
+  const isElite = !isDogRound && gameState.round >= 5 && Math.random() < 0.20;
+  
+  let mesh, mat;
+  if (isDogRound) {
+    mesh = createDogMesh();
+    mat = null; // Sprite uses internal material
+  } else {
+    const res = createZombieMesh(isElite);
+    mesh = res.mesh;
+    mat = res.mat;
+  }
+  
   const pos = randomSpawnPosition(playerPos);
   mesh.position.copy(pos);
   scene.add(mesh);
 
+  let hp = gameState.getZombieHP();
+  let speed = gameState.getZombieSpeed();
+  
+  if (isDogRound) {
+    hp *= 0.5; // Dogs are squishy
+    speed *= 1.6; // Dogs are FAST
+  } else if (isElite) {
+    hp *= 2.5;
+    speed *= 1.3;
+  }
+
   const zombie = {
     mesh,
-    baseMaterial: mat, // legacy, no longer used for flashing all parts easily, but kept for compatibility
-    limbs: findLimbs(mesh.userData.model),
-    model: mesh.userData.model,
+    baseMaterial: mat,
+    limbs: isDogRound ? {} : findLimbs(mesh.userData.model),
+    model: isDogRound ? null : mesh.userData.model,
     walkPhase: Math.random() * Math.PI * 2,
     alive: true,
+    isDog: isDogRound,
+    isElite,
     damageCooldown: 0,
     deathTimer: 0,
-    hp: gameState.getZombieHP(),
+    hp: hp,
     flashTimer: 0,
-    isElite,
     wanderAngle: Math.random() * Math.PI * 2,
     stuckTimer: 0,
     evadeTimer: 0,
@@ -451,7 +501,16 @@ export function updateZombies(delta, audioCallback) {
       }
     }
 
-    animateWalk(z, delta, isMoving);
+    if (!z.isDog) {
+      animateWalk(z, delta, isMoving);
+    } else {
+      // Dog bobbing animation
+      const sprite = z.mesh.userData.sprite;
+      if (sprite) {
+        sprite.position.y = 0.45 + Math.sin(z.walkPhase * 8) * 0.05;
+        z.walkPhase += delta;
+      }
+    }
 
     z.mesh.lookAt(new THREE.Vector3(playerPos.x, z.mesh.position.y, playerPos.z));
 
@@ -588,6 +647,13 @@ export function damageZombie(zombie, amount) {
     zombie.alive = false;
     zombie.deathTimer = 0;
     spawnDeathParticles(zombie.mesh.position.clone());
+    
+    // If it's a dog round and it's the last one, drop MAX AMMO
+    const isLastOne = zombies.filter(z => z.alive).length === 0;
+    if (gameState.isDogRound && isLastOne) {
+      forceDropMaxAmmo(zombie.mesh.position);
+    }
+
     gameState.onZombieKilled();
     tryDropPowerup(zombie.mesh.position);
     return true;

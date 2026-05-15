@@ -21,6 +21,7 @@ export const gameState = {
   roundStarting: false,
   roundStartTimer: 0,
   roundBannerTimer: 0,
+  isDogRound: false,
 
   instaKill: false,
   instaKillTimer: 0,
@@ -43,6 +44,7 @@ export const gameState = {
   startGame() {
     this.state = 'playing';
     this.round = 1;
+    this.isDogRound = false;
     this.points = 500;
     this.MAX_LIVES = 3;
     this.lives = this.MAX_LIVES;
@@ -81,7 +83,15 @@ export const gameState = {
   },
 
   _beginRound() {
-    this.zombiesInRound = Math.min(6 + this.round * 6, 24 + this.round);
+    this.isDogRound = (this.round > 0 && this.round % 4 === 0);
+    
+    if (this.isDogRound) {
+      // Fewer dogs but faster (approx 1.5 per level)
+      this.zombiesInRound = Math.min(4 + this.round, 16);
+    } else {
+      this.zombiesInRound = Math.min(6 + this.round * 6, 24 + this.round);
+    }
+    
     this.zombiesSpawned = 0;
     this.zombiesKilled = 0;
     this.roundStarting = false;

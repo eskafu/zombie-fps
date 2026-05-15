@@ -3,17 +3,20 @@ import { getScene } from './scene.js';
 import { getPlayerPosition } from './player.js';
 import { gameState } from './game-state.js';
 import { createCelMaterial } from './celshade.js';
+import { refillAmmoSilent } from './weapon.js';
 
-const POWERUP_TYPES = ['instaKill', 'doublePoints', 'nuke'];
+const POWERUP_TYPES = ['instaKill', 'doublePoints', 'nuke', 'maxAmmo'];
 const POWERUP_COLORS = {
   instaKill:    0xffdd00,
   doublePoints: 0x00ddff,
   nuke:         0x44ff44,
+  maxAmmo:      0x22ff44,
 };
 const POWERUP_LABELS = {
   instaKill:    'INSTA-KILL',
   doublePoints: 'DOUBLE POINTS',
   nuke:         'NUKE',
+  maxAmmo:      'MAX AMMO',
 };
 const DROP_CHANCE = 0.04;
 const PICKUP_RADIUS = 1.8;
@@ -95,6 +98,21 @@ function buildPickupMesh(type) {
       pivot.add(blade);
       group.add(pivot);
     }
+  } else if (type === 'maxAmmo') {
+    // AMMO BOX
+    const boxGeo = new THREE.BoxGeometry(0.35, 0.3, 0.2);
+    const box = new THREE.Mesh(boxGeo, mat);
+    group.add(box);
+    
+    // Bullet detail
+    const bulletGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.15, 6);
+    const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffdd44 });
+    const b1 = new THREE.Mesh(bulletGeo, bulletMat);
+    b1.position.set(0.08, 0, 0.11);
+    b1.rotation.x = Math.PI / 2;
+    const b2 = b1.clone();
+    b2.position.x = -0.08;
+    group.add(b1, b2);
   }
 
   // Common glow
@@ -159,6 +177,11 @@ function applyPowerup(type) {
   if (type === 'instaKill') gameState.activateInstaKill();
   else if (type === 'doublePoints') gameState.activateDoublePoints();
   else if (type === 'nuke') gameState.activateNuke();
+  else if (type === 'maxAmmo') refillAmmoSilent();
+}
+
+export function forceDropMaxAmmo(position) {
+  spawnPowerup('maxAmmo', position.clone());
 }
 
 export function clearAllPowerups() {

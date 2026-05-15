@@ -210,7 +210,13 @@ export function updateHUD(delta) {
   if (gameState.roundBannerTimer > 0 && gameState.round !== roundBannerShown) {
     roundBannerShown = gameState.round;
     if (elements.roundBanner) {
-      elements.roundBanner.textContent = `ROUND ${gameState.round}`;
+      if (gameState.isDogRound) {
+        elements.roundBanner.textContent = `HELLHOUNDS`;
+        elements.roundBanner.style.color = '#ff3300';
+      } else {
+        elements.roundBanner.textContent = `ROUND ${gameState.round}`;
+        elements.roundBanner.style.color = '#ffd700';
+      }
       elements.roundBanner.style.opacity = '1';
     }
   }

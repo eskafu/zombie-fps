@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeAsphaltTexture, makeSkyTexture, makeGrungeMaterial, makeWoodPlankMaterial, makeVehicleMaterial, makeBarrelMaterial } from './textures.js';
+import { gameState } from './game-state.js';
 
 let scene, camera, renderer;
 let ground, barriers, lights;
@@ -1003,6 +1004,22 @@ function createMountains() {
 }
 
 export function updateAtmosphere(time) {
+  // Fog transition
+  if (scene.fog) {
+    const isDog = gameState.isDogRound;
+    const targetColor = new THREE.Color(isDog ? 0x220500 : 0x020308);
+    const targetDensity = isDog ? 0.08 : 0.035;
+
+    // Smoothly transition fog color and density
+    scene.fog.color.lerp(targetColor, 0.02);
+    scene.fog.density += (targetDensity - scene.fog.density) * 0.02;
+    
+    // Also tint sky slightly if it's a dog round
+    if (isDog) {
+        scene.background.lerp ? scene.background.lerp(targetColor, 0.01) : null;
+    }
+  }
+
   for (const f of flickerLights) {
     if (f.isStreet) {
       // Broken fluorescent tube flicker
