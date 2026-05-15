@@ -237,7 +237,9 @@ function spawnSingle(scene, playerPos) {
     flashTimer: 0,
     isElite,
     wanderAngle: Math.random() * Math.PI * 2,
-    stuckTimer: 0
+    stuckTimer: 0,
+    evadeTimer: 0,
+    evadeAngle: 0
   };
   zombies.push(zombie);
   gameState.onZombieSpawned();
@@ -395,10 +397,16 @@ export function updateZombies(delta, audioCallback) {
     if (isMoving) {
       dir.normalize();
 
-      // Wobble: slight lateral sway so they don't walk perfectly perpendicular into walls
-      z.wanderAngle += delta * 1.5;
-      const wobble = new THREE.Vector3(Math.cos(z.wanderAngle), 0, Math.sin(z.wanderAngle)).multiplyScalar(0.2);
-      dir.add(wobble).normalize();
+      if (z.evadeTimer > 0) {
+        z.evadeTimer -= delta;
+        // Se estiver a tentar desviar, roda o eixo na direção definida
+        dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), z.evadeAngle);
+      } else {
+        // Wobble normal se não estiver preso
+        z.wanderAngle += delta * 1.5;
+        const wobble = new THREE.Vector3(Math.cos(z.wanderAngle), 0, Math.sin(z.wanderAngle)).multiplyScalar(0.2);
+        dir.add(wobble).normalize();
+      }
 
       const speed = isLastZombie ? baseSpeed * 0.35 : z.isElite ? baseSpeed * 1.8 : baseSpeed;
       const step = speed * delta;
@@ -407,16 +415,19 @@ export function updateZombies(delta, audioCallback) {
       z.mesh.position.addScaledVector(dir, Math.min(step, dist));
       resolveCollision(z.mesh.position, 0.5);
 
-      // Stuck detection: if they didn't move much despite trying, they are likely against a wall
+      // Stuck detection: se não andou, tenta rodar 45 graus
       const movedDist = z.mesh.position.distanceTo(beforePos);
       if (movedDist < step * 0.2) {
         z.stuckTimer += delta;
         if (z.stuckTimer > 0.4) {
-          // Apply a lateral sidestep to slide along the obstacle
-          const sidestep = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(speed * delta * 8);
-          if (z.wanderAngle % 2 > 1) sidestep.negate(); // pick a consistent side based on wander angle
-          z.mesh.position.add(sidestep);
-          resolveCollision(z.mesh.position, 0.5);
+          if (z.evadeTimer > 0) {
+            // Se já estava a desviar e continuou preso, adiciona mais 45 graus!
+            z.evadeAngle += (z.evadeAngle > 0 ? 1 : -1) * (Math.PI / 4);
+          } else {
+            // Primeiro bloqueio: tenta 45 graus para um dos lados
+            z.evadeAngle = (z.wanderAngle % 2 > 1 ? 1 : -1) * (Math.PI / 4);
+          }
+          z.evadeTimer = 1.0; // Mantém a rotação por 1 segundo
           z.stuckTimer = 0;
         }
       } else {
