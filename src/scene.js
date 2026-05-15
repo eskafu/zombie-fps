@@ -5,6 +5,7 @@ let scene, camera, renderer;
 let ground, barriers, lights;
 const barrierColliders = [];
 const flickerLights = [];
+const spawnPoints = []; // Zombie spawn points: house doors + well
 
 // Seeded PRNG (mulberry32) for deterministic barrier placement
 let _seed = 42;
@@ -56,6 +57,7 @@ export function initScene() {
   createVehicles();
   createDebris();
   createStreetProps();
+  createWell();
   createMountains();
 
   window.addEventListener('resize', onResize);
@@ -342,6 +344,18 @@ function createVillage() {
     door.position.set(-width/4, doorH/2, depth/2 + 0.05); // Offset door slightly
     door.castShadow = true;
     group.add(door);
+
+    // Register door as a spawn point (in world space, just outside the door)
+    {
+      const c = Math.cos(rotation), s = Math.sin(rotation);
+      const localDoorX = -width/4;
+      const localDoorZ = depth/2 + 1.5; // 1.5m in front of door
+      const worldX = x + localDoorX * c - localDoorZ * s;
+      const worldZ = z + localDoorX * s + localDoorZ * c;
+      if (Math.sqrt(worldX*worldX + worldZ*worldZ) < 100) {
+        spawnPoints.push(new THREE.Vector3(worldX, 0, worldZ));
+      }
+    }
 
     // Awning over door
     if (Math.random() > 0.5) {
@@ -857,6 +871,77 @@ function createStreetProps() {
   });
 }
 
+function createWell() {
+  const group = new THREE.Group();
+  const stoneMat = makeGrungeMaterial(0x555555, 'wall');
+  const woodMat = makeGrungeMaterial(0x4a3a2a, 'crate');
+  const ropeMat = new THREE.MeshStandardMaterial({ color: 0x8a7a5a, roughness: 0.9 });
+  const waterMat = new THREE.MeshStandardMaterial({ color: 0x1a3a5a, roughness: 0.1, metalness: 0.2 });
+
+  // Stone base ring
+  const baseGeo = new THREE.CylinderGeometry(1.1, 1.2, 0.9, 12);
+  const base = new THREE.Mesh(baseGeo, stoneMat);
+  base.position.y = 0.45;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  group.add(base);
+
+  // Inner hole (dark water at bottom)
+  const holeGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.85, 12);
+  const hole = new THREE.Mesh(holeGeo, new THREE.MeshStandardMaterial({ color: 0x080808 }));
+  hole.position.y = 0.425;
+  group.add(hole);
+
+  // Water surface
+  const waterGeo = new THREE.CylinderGeometry(0.68, 0.68, 0.05, 12);
+  const water = new THREE.Mesh(waterGeo, waterMat);
+  water.position.y = 0.1;
+  group.add(water);
+
+  // 4 stone pillars
+  const pillarGeo = new THREE.BoxGeometry(0.22, 1.4, 0.22);
+  const pillarPositions = [[0.75, 0.75], [-0.75, 0.75], [0.75, -0.75], [-0.75, -0.75]];
+  for (const [px, pz] of pillarPositions) {
+    const pillar = new THREE.Mesh(pillarGeo, stoneMat);
+    pillar.position.set(px, 1.55, pz);
+    pillar.castShadow = true;
+    group.add(pillar);
+  }
+
+  // Horizontal wooden beam across the top
+  const beamGeo = new THREE.BoxGeometry(0.18, 0.18, 1.8);
+  const beam = new THREE.Mesh(beamGeo, woodMat);
+  beam.position.set(0, 2.3, 0);
+  beam.castShadow = true;
+  group.add(beam);
+
+  // Winding axle in the center
+  const axleGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.6, 8);
+  const axle = new THREE.Mesh(axleGeo, woodMat);
+  axle.rotation.x = Math.PI / 2;
+  axle.position.set(0, 2.3, 0);
+  group.add(axle);
+
+  // Rope hanging down
+  const ropeGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.8, 4);
+  const rope = new THREE.Mesh(ropeGeo, ropeMat);
+  rope.position.set(0, 1.4, 0);
+  group.add(rope);
+
+  group.position.set(0, 0, 0); // Center of the map
+  scene.add(group);
+
+  // Collision: ring around the well
+  barrierColliders.push({ x: 0, z: 0, halfX: 1.3, halfZ: 1.3, maxY: 2.5 });
+
+  // Register 4 spawn points around the well (rising from the well)
+  const wellRadius = 3.5;
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    spawnPoints.push(new THREE.Vector3(Math.cos(a) * wellRadius, 0, Math.sin(a) * wellRadius));
+  }
+}
+
 function createMountains() {
   const geo = new THREE.CylinderGeometry(115, 115, 60, 64, 1, true);
   const posAttribute = geo.attributes.position;
@@ -924,6 +1009,7 @@ export function getRenderer() { return renderer; }
 export function getGround() { return ground; }
 export function getBarriers() { return barriers; }
 export function getBarrierColliders() { return barrierColliders; }
+export function getSpawnPoints() { return spawnPoints; }
 
 export function getGroundHeight(x, z, radius) {
   let highest = 0;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getScene, resolveCollision } from './scene.js';
+import { getScene, resolveCollision, getSpawnPoints } from './scene.js';
 import { getPlayerPosition } from './player.js';
 import { gameState } from './game-state.js';
 import { createCelMaterial, applyOutlineToMesh } from './celshade.js';
@@ -17,8 +17,9 @@ const flashMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive
 
 const DAMAGE_DISTANCE = 1.8;
 const MAX_ZOMBIES = 24;
-const SPAWN_MIN_DIST = 20;
-const SPAWN_MAX_DIST = 40;
+const SPAWN_MIN_DIST = 18;  // Minimum distance from player
+const SPAWN_MAX_DIST = 40;  // Fallback random spawn max distance
+const ZOMBIE_SEPARATION = 1.0; // Minimum radius between zombies
 const DAMAGE_COOLDOWN = 1.5;
 const FLASH_DURATION = 0.08;
 
@@ -174,12 +175,27 @@ function createZombieMesh(isElite = false) {
 }
 
 function randomSpawnPosition(playerPos) {
+  // Try to use a registered spawn point (house door or well)
+  const points = getSpawnPoints();
+  if (points.length > 0) {
+    // Shuffle candidates and pick the first one far enough from player
+    const candidates = points.slice().sort(() => Math.random() - 0.5);
+    for (const pt of candidates) {
+      const dx = pt.x - playerPos.x;
+      const dz = pt.z - playerPos.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist >= SPAWN_MIN_DIST) {
+        return pt.clone();
+      }
+    }
+  }
+  // Fallback: random position within the village (never in mountains)
   const angle = Math.random() * Math.PI * 2;
   const dist = SPAWN_MIN_DIST + Math.random() * (SPAWN_MAX_DIST - SPAWN_MIN_DIST);
   const x = playerPos.x + Math.cos(angle) * dist;
   const z = playerPos.z + Math.sin(angle) * dist;
-  const clampedX = Math.max(-108, Math.min(108, x));
-  const clampedZ = Math.max(-108, Math.min(108, z));
+  const clampedX = Math.max(-90, Math.min(90, x));
+  const clampedZ = Math.max(-90, Math.min(90, z));
   return new THREE.Vector3(clampedX, 0, clampedZ);
 }
 
@@ -376,6 +392,21 @@ export function updateZombies(delta, audioCallback) {
       const step = speed * delta;
       z.mesh.position.addScaledVector(dir, Math.min(step, dist));
       resolveCollision(z.mesh.position, 0.5);
+    }
+
+    // Zombie separation — push apart from other zombies so they don't stack
+    for (let j = i - 1; j >= 0; j--) {
+      const other = zombies[j];
+      if (!other.alive) continue;
+      const sep = new THREE.Vector3().subVectors(z.mesh.position, other.mesh.position);
+      sep.y = 0;
+      const sepDist = sep.length();
+      if (sepDist < ZOMBIE_SEPARATION && sepDist > 0.001) {
+        const push = (ZOMBIE_SEPARATION - sepDist) * 0.5;
+        sep.normalize().multiplyScalar(push);
+        z.mesh.position.add(sep);
+        other.mesh.position.sub(sep);
+      }
     }
 
     animateWalk(z, delta, isMoving);
