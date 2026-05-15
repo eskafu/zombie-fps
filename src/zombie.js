@@ -7,9 +7,6 @@ import { makeGrungeMaterial } from './textures.js';
 import { tryDropPowerup, forceDropMaxAmmo } from './powerups.js';
 import { playZombieGrowl } from './audio.js';
 
-const loader = new THREE.TextureLoader();
-const dogTexture = loader.load('assets/zombies/dog.png');
-
 const zombies = [];
 const particles = [];
 const skinColors = [0x708060, 0x8a9a7a, 0x6a7a6a, 0x5a6a5a, 0x6b7762];
@@ -25,6 +22,23 @@ const SPAWN_MAX_DIST = 40;  // Fallback random spawn max distance
 const ZOMBIE_SEPARATION = 1.0; // Minimum radius between zombies
 const DAMAGE_COOLDOWN = 1.5;
 const FLASH_DURATION = 0.08;
+
+// Geometry cache to prevent stutters during spawning
+const GEOS = {
+  zombieTorso: new THREE.BoxGeometry(0.4, 0.6, 0.22),
+  zombieHead: new THREE.BoxGeometry(0.26, 0.26, 0.28),
+  zombieJaw: new THREE.BoxGeometry(0.24, 0.08, 0.22),
+  zombieEye: new THREE.BoxGeometry(0.04, 0.03, 0.02),
+  zombieUpperArm: new THREE.BoxGeometry(0.14, 0.35, 0.14),
+  zombieLowerArm: new THREE.BoxGeometry(0.12, 0.35, 0.12),
+  zombieUpperLeg: new THREE.BoxGeometry(0.16, 0.45, 0.16),
+  zombieLowerLeg: new THREE.BoxGeometry(0.14, 0.45, 0.14),
+  
+  dogBody: new THREE.BoxGeometry(0.32, 0.32, 0.65),
+  dogHead: new THREE.BoxGeometry(0.24, 0.24, 0.32),
+  dogEye: new THREE.BoxGeometry(0.04, 0.04, 0.02),
+  dogLeg: new THREE.BoxGeometry(0.1, 0.4, 0.1)
+};
 
 let spawnAccumulator = 0;
 let wasRoundStarting = false;
@@ -68,20 +82,17 @@ function createZombieMesh(isElite = false) {
   }
 
   // Torso
-  const torsoGeo = new THREE.BoxGeometry(0.4, 0.6, 0.22);
-  const torso = createPart(torsoGeo, shirtMat, 0, 1.3, 0, 'isTorso');
+  const torso = createPart(GEOS.zombieTorso, shirtMat, 0, 1.3, 0, 'isTorso');
   model.add(torso);
 
   // Head Group (pivot at neck)
   const headGroup = new THREE.Group();
   headGroup.position.set(0, 1.6, 0);
-  const headGeo = new THREE.BoxGeometry(0.26, 0.26, 0.28);
-  const head = createPart(headGeo, skinMat, 0, 0.13, 0, 'isHead');
+  const head = createPart(GEOS.zombieHead, skinMat, 0, 0.13, 0, 'isHead');
   headGroup.add(head);
 
   // Jaw
-  const jawGeo = new THREE.BoxGeometry(0.24, 0.08, 0.22);
-  const jaw = createPart(jawGeo, skinMat, 0, -0.04, 0.05, 'isHead');
+  const jaw = createPart(GEOS.zombieJaw, skinMat, 0, -0.04, 0.05, 'isHead');
   jaw.rotation.x = 0.25; // slightly open
   headGroup.add(jaw);
 
@@ -92,26 +103,21 @@ function createZombieMesh(isElite = false) {
     emissiveIntensity: 6.0, 
     roughness: 0.4 
   });
-  const eyeGeo = new THREE.BoxGeometry(0.04, 0.03, 0.02);
-  const leftEye = createPart(eyeGeo, eyeMat, -0.06, 0.17, 0.141, 'isHead');
-  const rightEye = createPart(eyeGeo, eyeMat, 0.06, 0.17, 0.141, 'isHead');
+  const leftEye = createPart(GEOS.zombieEye, eyeMat, -0.06, 0.17, 0.141, 'isHead');
+  const rightEye = createPart(GEOS.zombieEye, eyeMat, 0.06, 0.17, 0.141, 'isHead');
   headGroup.add(leftEye, rightEye);
 
   model.add(headGroup);
   headGroup.userData.headGroup = true;
   model.userData.headGroup = headGroup;
 
-  // Arms
-  const upperArmGeo = new THREE.BoxGeometry(0.14, 0.35, 0.14);
-  const lowerArmGeo = new THREE.BoxGeometry(0.12, 0.35, 0.12);
-
-  // Left Arm
+  // Arms (pivot at shoulder)
   const leftArm = new THREE.Group();
   leftArm.position.set(-0.27, 1.55, 0);
-  leftArm.add(createPart(upperArmGeo, shirtMat, 0, -0.175, 0));
+  leftArm.add(createPart(GEOS.zombieUpperArm, shirtMat, 0, -0.175, 0));
   const leftLowerArm = new THREE.Group();
   leftLowerArm.position.set(0, -0.35, 0);
-  leftLowerArm.add(createPart(lowerArmGeo, skinMat, 0, -0.175, 0));
+  leftLowerArm.add(createPart(GEOS.zombieLowerArm, skinMat, 0, -0.175, 0));
   leftArm.add(leftLowerArm);
   leftArm.userData.leftArm = true;
   leftArm.userData.leftLowerArm = leftLowerArm;
@@ -120,38 +126,33 @@ function createZombieMesh(isElite = false) {
   // Right Arm
   const rightArm = new THREE.Group();
   rightArm.position.set(0.27, 1.55, 0);
-  rightArm.add(createPart(upperArmGeo, shirtMat, 0, -0.175, 0));
+  rightArm.add(createPart(GEOS.zombieUpperArm, shirtMat, 0, -0.175, 0));
   const rightLowerArm = new THREE.Group();
   rightLowerArm.position.set(0, -0.35, 0);
-  rightLowerArm.add(createPart(lowerArmGeo, skinMat, 0, -0.175, 0));
+  rightLowerArm.add(createPart(GEOS.zombieLowerArm, skinMat, 0, -0.175, 0));
   rightArm.add(rightLowerArm);
   rightArm.userData.rightArm = true;
   rightArm.userData.rightLowerArm = rightLowerArm;
   model.add(rightArm);
 
   // Legs
-  const upperLegGeo = new THREE.BoxGeometry(0.16, 0.45, 0.16);
-  const lowerLegGeo = new THREE.BoxGeometry(0.14, 0.45, 0.14);
-
-  // Left Leg
   const leftLeg = new THREE.Group();
   leftLeg.position.set(-0.12, 1.0, 0);
-  leftLeg.add(createPart(upperLegGeo, pantsMat, 0, -0.225, 0));
+  leftLeg.add(createPart(GEOS.zombieUpperLeg, pantsMat, 0, -0.225, 0));
   const leftLowerLeg = new THREE.Group();
   leftLowerLeg.position.set(0, -0.45, 0);
-  leftLowerLeg.add(createPart(lowerLegGeo, pantsMat, 0, -0.225, 0));
+  leftLowerLeg.add(createPart(GEOS.zombieLowerLeg, pantsMat, 0, -0.225, 0));
   leftLeg.add(leftLowerLeg);
   leftLeg.userData.leftLeg = true;
   leftLeg.userData.leftLowerLeg = leftLowerLeg;
   model.add(leftLeg);
 
-  // Right Leg
   const rightLeg = new THREE.Group();
   rightLeg.position.set(0.12, 1.0, 0);
-  rightLeg.add(createPart(upperLegGeo, pantsMat, 0, -0.225, 0));
+  rightLeg.add(createPart(GEOS.zombieUpperLeg, pantsMat, 0, -0.225, 0));
   const rightLowerLeg = new THREE.Group();
   rightLowerLeg.position.set(0, -0.45, 0);
-  rightLowerLeg.add(createPart(lowerLegGeo, pantsMat, 0, -0.225, 0));
+  rightLowerLeg.add(createPart(GEOS.zombieLowerLeg, pantsMat, 0, -0.225, 0));
   rightLeg.add(rightLowerLeg);
   rightLeg.userData.rightLeg = true;
   rightLeg.userData.rightLowerLeg = rightLowerLeg;
@@ -224,8 +225,12 @@ function createDogMesh() {
   mesh.userData.model = model;
 
   const bodyMat = makeGrungeMaterial(0x2a1a1a, 'skin');
+  // Make the body slightly emissive for a hellish glow
+  bodyMat.emissive = new THREE.Color(0x330500);
+  bodyMat.emissiveIntensity = 0.5;
+  
   const legMat = makeGrungeMaterial(0x1a0a0a, 'clothes');
-  const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 8 });
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 12 });
 
   function createPart(geo, mat, x, y, z, tag) {
     const m = new THREE.Mesh(geo, mat);
@@ -237,33 +242,27 @@ function createDogMesh() {
   }
 
   // Body
-  const body = createPart(new THREE.BoxGeometry(0.32, 0.32, 0.65), bodyMat, 0, 0.45, 0);
+  const body = createPart(GEOS.dogBody, bodyMat, 0, 0.45, 0);
   model.add(body);
 
   // Head
   const headGroup = new THREE.Group();
   headGroup.position.set(0, 0.55, 0.3);
-  const head = createPart(new THREE.BoxGeometry(0.24, 0.24, 0.32), bodyMat, 0, 0.05, 0.1, 'isHead');
+  const head = createPart(GEOS.dogHead, bodyMat, 0, 0.05, 0.1, 'isHead');
   headGroup.add(head);
 
   // Eyes
-  const eyeL = createPart(new THREE.BoxGeometry(0.04, 0.04, 0.02), eyeMat, -0.07, 0.1, 0.25, 'isHead');
-  const eyeR = createPart(new THREE.BoxGeometry(0.04, 0.04, 0.02), eyeMat, 0.07, 0.1, 0.25, 'isHead');
+  const eyeL = createPart(GEOS.dogEye, eyeMat, -0.07, 0.1, 0.25, 'isHead');
+  const eyeR = createPart(GEOS.dogEye, eyeMat, 0.07, 0.1, 0.25, 'isHead');
   headGroup.add(eyeL, eyeR);
   model.add(headGroup);
 
   // Legs (pivot at top)
-  const legGeo = new THREE.BoxGeometry(0.1, 0.4, 0.1);
-  const flLeg = new THREE.Group(); flLeg.position.set(-0.12, 0.35, 0.22); flLeg.add(createPart(legGeo, legMat, 0, -0.15, 0)); flLeg.userData.flLeg = true;
-  const frLeg = new THREE.Group(); frLeg.position.set(0.12, 0.35, 0.22); frLeg.add(createPart(legGeo, legMat, 0, -0.15, 0)); frLeg.userData.frLeg = true;
-  const blLeg = new THREE.Group(); blLeg.position.set(-0.12, 0.35, -0.22); blLeg.add(createPart(legGeo, legMat, 0, -0.15, 0)); blLeg.userData.blLeg = true;
-  const brLeg = new THREE.Group(); brLeg.position.set(0.12, 0.35, -0.22); brLeg.add(createPart(legGeo, legMat, 0, -0.15, 0)); brLeg.userData.brLeg = true;
+  const flLeg = new THREE.Group(); flLeg.position.set(-0.12, 0.35, 0.22); flLeg.add(createPart(GEOS.dogLeg, legMat, 0, -0.15, 0)); flLeg.userData.flLeg = true;
+  const frLeg = new THREE.Group(); frLeg.position.set(0.12, 0.35, 0.22); frLeg.add(createPart(GEOS.dogLeg, legMat, 0, -0.15, 0)); frLeg.userData.frLeg = true;
+  const blLeg = new THREE.Group(); blLeg.position.set(-0.12, 0.35, -0.22); blLeg.add(createPart(GEOS.dogLeg, legMat, 0, -0.15, 0)); blLeg.userData.blLeg = true;
+  const brLeg = new THREE.Group(); brLeg.position.set(0.12, 0.35, -0.22); brLeg.add(createPart(GEOS.dogLeg, legMat, 0, -0.15, 0)); brLeg.userData.brLeg = true;
   model.add(flLeg, frLeg, blLeg, brLeg);
-
-  // Aura light
-  const light = new THREE.PointLight(0xff3300, 1.2, 4);
-  light.position.y = 0.5;
-  model.add(light);
 
   mesh.userData.isDog = true;
   return mesh;

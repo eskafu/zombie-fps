@@ -1011,13 +1011,8 @@ export function updateAtmosphere(time) {
     const targetDensity = isDog ? 0.08 : 0.035;
 
     // Smoothly transition fog color and density
-    scene.fog.color.lerp(targetColor, 0.02);
-    scene.fog.density += (targetDensity - scene.fog.density) * 0.02;
-    
-    // Also tint sky slightly if it's a dog round
-    if (isDog) {
-        scene.background.lerp ? scene.background.lerp(targetColor, 0.01) : null;
-    }
+    scene.fog.color.lerp(targetColor, 0.05);
+    scene.fog.density += (targetDensity - scene.fog.density) * 0.05;
   }
 
   for (const f of flickerLights) {
