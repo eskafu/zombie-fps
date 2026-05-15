@@ -9,6 +9,8 @@ import { initAmmoStation, updateAmmoStation, tryBuyAmmo, isNearStation, getStati
 import { initMysteryBox, updateMysteryBox, tryActivateBox, isNearMysteryBox, getBoxCost } from './src/mysterybox.js';
 import { MobileControls, isMobile, lockLandscape } from './src/mobile.js';
 import { GamepadControls } from './src/gamepad.js';
+import { initEnergySwitches, tryInteractSwitch, getNearestSwitchLabel } from './src/energy.js';
+import { initPerks, tryBuyPerk, getNearestPerkLabel } from './src/perks.js';
 
 let lastTime = performance.now();
 let lastScore = 0;
@@ -55,9 +57,10 @@ function initMobile() {
   });
 
   mobileControls.setInteractCallback(() => {
-    if (!tryBuyAmmo()) {
-      tryActivateBox();
-    }
+    if (tryBuyAmmo()) return;
+    if (tryActivateBox()) return;
+    if (tryInteractSwitch()) return;
+    if (tryBuyPerk()) return;
   });
 }
 
@@ -118,7 +121,11 @@ function updateMobileInput() {
 
   if (mobileControls.consumeInteract()) {
     if (!tryBuyAmmo()) {
-      tryActivateBox();
+      if (!tryActivateBox()) {
+        if (!tryInteractSwitch()) {
+          tryBuyPerk();
+        }
+      }
     }
   }
 
@@ -131,6 +138,10 @@ function updateMobileInput() {
     label = `AMMO ${getStationCost()}`;
   } else if (isNearMysteryBox()) {
     label = `BOX ${getBoxCost()}`;
+  } else {
+    const sl = getNearestSwitchLabel();
+    if (sl) label = sl;
+    else label = getNearestPerkLabel();
   }
   mobileControls.setInteractLabel(label);
 }
@@ -146,7 +157,11 @@ function updateGamepadInput() {
 
   if (gamepadControls.consumeInteract()) {
     if (!tryBuyAmmo()) {
-      tryActivateBox();
+      if (!tryActivateBox()) {
+        if (!tryInteractSwitch()) {
+          tryBuyPerk();
+        }
+      }
     }
   }
 
@@ -202,6 +217,8 @@ initPlayer();
 initWeapon();
 initAmmoStation();
 initMysteryBox();
+initEnergySwitches();
+initPerks();
 initHUD();
 initMobile();
 initGamepad();

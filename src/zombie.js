@@ -326,6 +326,7 @@ export function updateZombies(delta, audioCallback) {
   // Nuke — kill all alive zombies instantly
   if (gameState.nukeQueued) {
     gameState.nukeQueued = false;
+    gameState.addPoints(400); // Nuke reward
     for (const z of zombies) {
       if (z.alive) {
         z.alive = false;
@@ -507,25 +508,52 @@ export function updateZombies(delta, audioCallback) {
 }
 
 export function checkShot(raycaster) {
+  const all = checkShotAll(raycaster);
+  return all.length > 0 ? all[0] : null;
+}
+
+export function checkShotAll(raycaster) {
   const meshes = zombies.filter(z => z.alive).map(z => {
     z.mesh.updateWorldMatrix(true, false);
     return z.mesh;
   });
   const intersects = raycaster.intersectObjects(meshes, true);
-  if (intersects.length === 0) return null;
+  if (intersects.length === 0) return [];
 
-  const hit = intersects[0];
-  const isHead = !!hit.object.userData.isHead;
-  let obj = hit.object;
-  while (obj) {
-    for (const z of zombies) {
-      if (z.alive && z.mesh === obj) {
-        return { zombie: z, isHead };
+  const results = [];
+  const hitZombieIds = new Set();
+
+  for (const hit of intersects) {
+    const isHead = !!hit.object.userData.isHead;
+    let obj = hit.object;
+    while (obj) {
+      const z = zombies.find(z => z.alive && z.mesh === obj);
+      if (z && !hitZombieIds.has(z.mesh.uuid)) {
+        results.push({ zombie: z, isHead, point: hit.point });
+        hitZombieIds.add(z.mesh.uuid);
+        break;
+      }
+      obj = obj.parent;
+    }
+  }
+  return results;
+}
+
+export function applySplashDamage(origin, radius, amount) {
+  let anyKill = false;
+  let killCount = 0;
+  for (const z of zombies) {
+    if (!z.alive) continue;
+    const dist = z.mesh.position.distanceTo(origin);
+    if (dist <= radius) {
+      const killed = damageZombie(z, amount);
+      if (killed) {
+        anyKill = true;
+        killCount++;
       }
     }
-    obj = obj.parent;
   }
-  return null;
+  return { anyKill, killCount };
 }
 
 function spawnDeathParticles(position) {

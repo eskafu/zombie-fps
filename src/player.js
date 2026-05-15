@@ -131,7 +131,7 @@ function onKeyDown(e) {
     case 'ShiftLeft': case 'ShiftRight': isSprinting = true; break;
     case 'Space': 
       if (canJump) {
-        jumpVelocity = JUMP_FORCE;
+        jumpVelocity = JUMP_FORCE * (gameState.perks.speedCola ? 1.2 : 1.0);
         canJump = false;
       }
       break;
@@ -318,7 +318,8 @@ export function updatePlayer(delta) {
 
     velocity.addScaledVector(forward, -direction.z);
     velocity.addScaledVector(right, direction.x);
-    velocity.normalize().multiplyScalar(PLAYER_SPEED * (sprinting ? SPRINT_MULTIPLIER : 1) * delta);
+    const speedMultiplier = (sprinting ? SPRINT_MULTIPLIER : 1) * (gameState.perks.speedCola ? 1.25 : 1.0);
+    velocity.normalize().multiplyScalar(PLAYER_SPEED * speedMultiplier * delta);
 
     const pos = getPlayerPosition();
     pos.add(velocity);

@@ -795,20 +795,24 @@ function createDebris() {
     [40, -30], [-10, 12], [28, -8], [-20, 35], [8, -22]
   ];
   cratePositions.forEach(([cx, cz]) => {
-    const stack = 1 + (Math.random() < 0.4 ? 1 : 0);
-    for (let i = 0; i < stack; i++) {
-      const size = 0.8 + Math.random() * 0.4;
+    const stackHeight = 1 + (Math.random() < 0.4 ? 1 : 0);
+    const size = 0.8 + Math.random() * 0.4;
+    const stackX = cx + (Math.random() - 0.5) * 1.5;
+    const stackZ = cz + (Math.random() - 0.5) * 1.5;
+    const rotation = Math.random() * Math.PI;
+
+    for (let i = 0; i < stackHeight; i++) {
       const crate = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), crateMat);
       crate.position.set(
-        cx + (Math.random() - 0.5) * 1.5,
-        size / 2 + i * size,
-        cz + (Math.random() - 0.5) * 1.5
+        stackX,
+        size / 2 + i * (size - 0.05), // Slightly overlap to avoid gaps
+        stackZ
       );
-      crate.rotation.y = Math.random() * Math.PI;
+      crate.rotation.y = rotation + (i * 0.1); // Slight variation in rotation per level
       crate.castShadow = true;
       s.add(crate);
     }
-    barrierColliders.push({ x: cx, z: cz, halfX: 0.7, halfZ: 0.7, maxY: stack * 1.2 });
+    barrierColliders.push({ x: stackX, z: stackZ, halfX: size/2, halfZ: size/2, maxY: stackHeight * size });
   });
 
   // ── Sandbag barricades ──

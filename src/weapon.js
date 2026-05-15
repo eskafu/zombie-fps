@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getCamera, getScene } from './scene.js';
-import { checkShot, damageZombie, getZombies } from './zombie.js';
+import { checkShot, checkShotAll, damageZombie, getZombies, applySplashDamage } from './zombie.js';
 import { playShot, playReloadSound } from './audio.js';
 import { gameState } from './game-state.js';
 import { showHitMarker } from './hud.js';
@@ -98,8 +98,8 @@ const SPRITESHEET_CONFIG = {
 const WEAPON_DEFS = {
   pistol: {
     name: 'PISTOL',
-    magSize: 8,
-    maxReserve: 56,
+    magSize: 10, // 8 -> 10
+    maxReserve: 70, // 56 -> 70
     cooldown: 0.4,
     reloadTime: 1.8,
     damage: 75,
@@ -110,8 +110,8 @@ const WEAPON_DEFS = {
   },
   shotgun: {
     name: 'SHOTGUN',
-    magSize: 4,
-    maxReserve: 20,
+    magSize: 5, // 4 -> 5
+    maxReserve: 25, // 20 -> 25
     cooldown: 0.8,
     reloadTime: 2.2,
     damage: 50,
@@ -124,8 +124,8 @@ const WEAPON_DEFS = {
   },
   smg: {
     name: 'SMG',
-    magSize: 30,
-    maxReserve: 120,
+    magSize: 38, // 30 -> 38
+    maxReserve: 150, // 120 -> 150
     cooldown: 0.12,
     reloadTime: 2.0,
     damage: 35,
@@ -133,14 +133,15 @@ const WEAPON_DEFS = {
     pellets: 1,
     spread: 0.04,
     automatic: true,
+    penetration: true, // New property
     spritesheet: SPRITESHEET_CONFIG.smg,
     unlockRound: 5,
     unlockCost: 2000,
   },
   aliengun: {
     name: 'ALIEN GUN',
-    magSize: 10,
-    maxReserve: 30,
+    magSize: 12, // 10 -> 12
+    maxReserve: 38, // 30 -> 38
     cooldown: 0.5,
     reloadTime: 2.5,
     damage: 120,
@@ -151,14 +152,15 @@ const WEAPON_DEFS = {
   },
   raygun: {
     name: 'RAYGUN',
-    magSize: 6,
-    maxReserve: 18,
+    magSize: 8, // 6 -> 8
+    maxReserve: 22, // 18 -> 22
     cooldown: 0.6,
     reloadTime: 2.5,
-    damage: 200,
-    headDamage: 400,
+    damage: 220, // Impact 220
+    headDamage: 220,
     pellets: 1,
     spread: 0.01,
+    splash: 300, // New property
     spritesheet: SPRITESHEET_CONFIG.raygun,
   },
   katana: {
@@ -177,7 +179,7 @@ const WEAPON_DEFS = {
   },
   grapplegun: {
     name: 'PISTOLA GANCHO',
-    magSize: 3, // Testing: 3 charges
+    magSize: 3,
     maxReserve: 0,
     cooldown: 1.0,
     reloadTime: 0,
@@ -315,7 +317,8 @@ function startReload() {
   if (ammo.reserve <= 0) return;
   if (ammo.current >= def.magSize) return;
   isReloading = true;
-  reloadTimer = def.reloadTime;
+  const reloadSpeedMult = gameState.perks.speedCola ? 0.5 : 1.0;
+  reloadTimer = Math.max(0.2, def.reloadTime * reloadSpeedMult);
   // Start reload animation (only if weapon has reload frames)
   playReloadSound(currentWeapon === 'shotgun');
   const cfg = def.spritesheet;
@@ -628,7 +631,9 @@ function updateAnimation(delta, cfg, texture) {
 
   if (!anim) return;
 
-  const frameDuration = 1 / anim.fps;
+  const isReloadAnim = animState === 'reload';
+  const fps = (isReloadAnim && gameState.perks.speedCola) ? anim.fps * 2 : anim.fps;
+  const frameDuration = 1 / fps;
   animTimer += delta;
 
   // Determine target frame
@@ -775,16 +780,31 @@ function shoot() {
     raycaster.set(camera.position, spreadVec);
     raycaster.far = def.range || 150;
 
-    const hit = checkShot(raycaster);
-    if (hit) {
+    const hits = checkShotAll(raycaster);
+    if (hits.length > 0) {
       anyHit = true;
-      if (hit.isHead) anyHead = true;
-      gameState.addPoints(5);
-      const damage = hit.isHead ? def.headDamage : def.damage;
-      const killed = damageZombie(hit.zombie, damage);
-      if (killed) {
-        anyKill = true;
-        gameState.addPoints(hit.isHead ? 50 : 25);
+      
+      // Penetration: SMG hits max 2 zombies (the first and the one behind)
+      const targets = def.penetration ? hits.slice(0, 2) : [hits[0]];
+
+      for (const hit of targets) {
+        if (hit.isHead) anyHead = true;
+        gameState.addPoints(10); // +10 per hit
+        const damage = hit.isHead ? def.headDamage : def.damage;
+        const killed = damageZombie(hit.zombie, damage);
+        if (killed) {
+          anyKill = true;
+          const killPoints = (hit.isHead || def.melee) ? 80 : 30;
+          gameState.addPoints(killPoints);
+        }
+
+        // Raygun Splash logic (only on first hit to avoid multiple explosions)
+        if (def.splash && hit === targets[0]) {
+          const splash = applySplashDamage(hit.point, 3.5, def.splash);
+          if (splash.anyKill) anyKill = true;
+          // Award points for splash kills (fixed 30 per splash kill)
+          if (splash.killCount > 0) gameState.addPoints(splash.killCount * 30);
+        }
       }
     }
   }

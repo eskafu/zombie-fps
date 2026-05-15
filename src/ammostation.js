@@ -67,6 +67,10 @@ function onKeyDown(e) {
 export function tryBuyAmmo() {
   if (gameState.state !== 'playing') return false;
   if (!nearStation) return false;
+  
+  const ammo = getAmmoState();
+  if (ammo.melee) return false; // Don't buy ammo for melee weapons
+
   if (gameState.points < AMMO_COST) return false;
 
   gameState.points -= AMMO_COST;

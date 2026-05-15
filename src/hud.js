@@ -5,6 +5,8 @@ import { isNearStation, getStationCost, getStationMessage } from './ammostation.
 import { isNearMysteryBox, getBoxCost, getBoxMessage } from './mysterybox.js';
 import { getLeaderboard, submitScore } from './ranking.js';
 import { haptic } from './mobile.js';
+import { getNearestSwitchLabel } from './energy.js';
+import { getNearestPerkLabel } from './perks.js';
 
 const elements = {};
 let bloodTimer = 0;
@@ -42,6 +44,17 @@ export function initHUD() {
   elements.ammoDisplay  = document.getElementById('ammo-display');
   elements.reloadBar    = document.getElementById('reload-bar');
   elements.buyPrompt    = document.getElementById('buy-prompt');
+  elements.perksList    = document.getElementById('perks-list');
+
+  if (!elements.perksList) {
+    elements.perksList = document.createElement('div');
+    elements.perksList.id = 'perks-list';
+    elements.perksList.style.cssText = `
+      position: fixed; bottom: 20px; left: 20px;
+      display: flex; gap: 10px; z-index: 10; pointer-events: none;
+    `;
+    document.body.appendChild(elements.perksList);
+  }
 
   // Blood overlay
   let blood = document.getElementById('blood-overlay');
@@ -95,6 +108,11 @@ export function updateHUD(delta) {
   elements.points.textContent = gameState.points.toLocaleString();
   elements.round.textContent = gameState.round;
   elements.zombiesLeft.textContent = gameState.getZombiesLeft();
+
+  // Energy status
+  if (!gameState.isPowerOn && gameState.energySwitchesActive > 0) {
+    elements.zombiesLeft.innerHTML += `<div style="font-size:0.8rem; color:#00ffaa">ENERGIA: ${gameState.energySwitchesActive}/3</div>`;
+  }
 
   // Health vignette
   if (elements.vignette) {
@@ -181,10 +199,22 @@ export function updateHUD(delta) {
     elements.weaponSlots.innerHTML = items.join('');
   }
 
+  // Perks List
+  if (elements.perksList) {
+    const active = [];
+    if (gameState.perks.juggernog)   active.push('<div class="perk-icon" style="background:#aa2211; border: 2px solid white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: white; text-shadow: 1px 1px 2px black;">❤️</div>');
+    if (gameState.perks.speedCola)   active.push('<div class="perk-icon" style="background:#228833; border: 2px solid white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: white; text-shadow: 1px 1px 2px black;">⚡</div>');
+    if (gameState.perks.quickRevive) active.push('<div class="perk-icon" style="background:#2244aa; border: 2px solid white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: white; text-shadow: 1px 1px 2px black;">➕</div>');
+    elements.perksList.innerHTML = active.join('');
+  }
+
   // Buy prompts
   if (elements.buyPrompt) {
     const stationMessage = getStationMessage();
     const boxMessage = getBoxMessage();
+    const switchLabel = getNearestSwitchLabel();
+    const perkLabel = getNearestPerkLabel();
+
     if (stationMessage) {
       elements.buyPrompt.style.display = 'block';
       elements.buyPrompt.style.color = '#44ff88';
@@ -193,14 +223,29 @@ export function updateHUD(delta) {
       elements.buyPrompt.style.display = 'block';
       elements.buyPrompt.style.color = '#ffdd00';
       elements.buyPrompt.textContent = boxMessage;
-    } else if (isNearStation()) {
-      const cost = getStationCost();
-      const canAfford = gameState.points >= cost;
+    } else if (switchLabel) {
       elements.buyPrompt.style.display = 'block';
-      elements.buyPrompt.style.color = canAfford ? '#44ff88' : '#ff4444';
-      elements.buyPrompt.textContent = canAfford
-        ? `[E] Comprar munição — ${cost} pts`
-        : `Munição — ${cost} pts (pontos insuficientes)`;
+      elements.buyPrompt.style.color = '#00ffaa';
+      elements.buyPrompt.textContent = `[E] ${switchLabel}`;
+    } else if (perkLabel) {
+      elements.buyPrompt.style.display = 'block';
+      elements.buyPrompt.style.color = perkLabel.includes('COMPRAR') ? '#ffffff' : '#ff4444';
+      elements.buyPrompt.textContent = `[E] ${perkLabel}`;
+    } else if (isNearStation()) {
+      const ammo = getAmmoState();
+      if (ammo.melee) {
+        elements.buyPrompt.style.display = 'block';
+        elements.buyPrompt.style.color = '#888888';
+        elements.buyPrompt.textContent = 'Munição — Não aplicável a esta arma';
+      } else {
+        const cost = getStationCost();
+        const canAfford = gameState.points >= cost;
+        elements.buyPrompt.style.display = 'block';
+        elements.buyPrompt.style.color = canAfford ? '#44ff88' : '#ff4444';
+        elements.buyPrompt.textContent = canAfford
+          ? `[E] Comprar munição — ${cost} pts`
+          : `Munição — ${cost} pts (pontos insuficientes)`;
+      }
     } else if (isNearMysteryBox()) {
       // Mystery box prompt
       const cost = getBoxCost();

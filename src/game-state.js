@@ -24,6 +24,15 @@ export const gameState = {
   doublePointsTimer: 0,
   nukeQueued: false,
 
+  energySwitchesActive: 0,
+  isPowerOn: false,
+  perks: {
+    juggernog: false,
+    speedCola: false,
+    quickRevive: false
+  },
+  quickReviveUses: 0,
+
   lifeRegenTimer: 0,
   MAX_LIVES: 3,
 
@@ -31,11 +40,16 @@ export const gameState = {
     this.state = 'playing';
     this.round = 1;
     this.points = 500;
+    this.MAX_LIVES = 3;
     this.lives = this.MAX_LIVES;
     this.kills = 0;
     this.nukeQueued = false;
     this.instaKill = false;
     this.doublePoints = false;
+    this.energySwitchesActive = 0;
+    this.isPowerOn = false;
+    this.perks = { juggernog: false, speedCola: false, quickRevive: false };
+    this.quickReviveUses = 0;
     this.lifeRegenTimer = LIFE_REGEN_DELAY;
     this._beginRound();
   },
@@ -73,10 +87,49 @@ export const gameState = {
     this.points += this.doublePoints ? base * 2 : base;
   },
 
+  activateSwitch() {
+    if (this.isPowerOn) return;
+    this.energySwitchesActive++;
+    if (this.energySwitchesActive >= 3) {
+      this.isPowerOn = true;
+    }
+  },
+
+  buyPerk(name, cost) {
+    if (this.points < cost) return false;
+    if (this.perks[name]) return false;
+    
+    this.points -= cost;
+    this.perks[name] = true;
+
+    if (name === 'juggernog') {
+      this.MAX_LIVES = 5;
+      this.lives = Math.max(this.lives, 5);
+    }
+    if (name === 'quickRevive') {
+      this.quickReviveUses++;
+    }
+    return true;
+  },
+
+  losePerks() {
+    this.perks = { juggernog: false, speedCola: false, quickRevive: false };
+    this.MAX_LIVES = 3;
+    this.lives = Math.min(this.lives, 3);
+  },
+
   takeDamage() {
     if (this.state !== 'playing') return false;
     this.lives--;
+    
     if (this.lives <= 0) {
+      // Check Quick Revive
+      if (this.perks.quickRevive) {
+        this.lives = 1;
+        this.losePerks();
+        return false; // Not game over yet
+      }
+
       this.state = 'game-over';
       if (this.kills > this.maxKills) {
         this.maxKills = this.kills;
