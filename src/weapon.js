@@ -205,8 +205,8 @@ const AIM_ASSIST_BLEND = 0.55;  // 0 = no help, 1 = full snap
 
 export function setAimAssist(enabled) { aimAssistEnabled = !!enabled; }
 
-let currentWeapon = 'grapplegun';
-let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: true };
+let currentWeapon = 'pistol';
+let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: false };
 
 let ammoState = {
   pistol:   { current: 8,  reserve: 56 },
@@ -431,8 +431,8 @@ export function initWeapon() {
 }
 
 export function resetWeapon() {
-  currentWeapon = 'grapplegun'; // Start with grapple gun for testing
-  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: true };
+  currentWeapon = 'pistol';
+  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: false };
   for (const [type, def] of Object.entries(WEAPON_DEFS)) {
     ammoState[type].current = def.magSize;
     ammoState[type].reserve = def.maxReserve;
