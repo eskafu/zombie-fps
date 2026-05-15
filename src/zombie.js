@@ -219,26 +219,65 @@ export function spawnInitialZombies() {
 
 function createDogMesh() {
   const mesh = new THREE.Group();
-  
-  // Use a sprite for the dog
-  const mat = new THREE.SpriteMaterial({ 
-    map: dogTexture, 
-    color: 0xffffff,
-    transparent: true 
-  });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(1.4, 0.9, 1.0);
-  sprite.position.y = 0.45; // Low to ground
-  mesh.add(sprite);
-  
-  // Red glowing aura
-  const light = new THREE.PointLight(0xff3300, 1.5, 4);
+  const model = new THREE.Group();
+  mesh.add(model);
+  mesh.userData.model = model;
+
+  const bodyMat = makeGrungeMaterial(0x2a1a1a, 'skin');
+  const legMat = makeGrungeMaterial(0x1a0a0a, 'clothes');
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 8 });
+
+  function createPart(geo, mat, x, y, z, tag) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    if (tag) m.userData[tag] = true;
+    m.userData.baseMat = mat;
+    return m;
+  }
+
+  // Body
+  const body = createPart(new THREE.BoxGeometry(0.32, 0.32, 0.65), bodyMat, 0, 0.45, 0);
+  model.add(body);
+
+  // Head
+  const headGroup = new THREE.Group();
+  headGroup.position.set(0, 0.55, 0.3);
+  const head = createPart(new THREE.BoxGeometry(0.24, 0.24, 0.32), bodyMat, 0, 0.05, 0.1, 'isHead');
+  headGroup.add(head);
+
+  // Eyes
+  const eyeL = createPart(new THREE.BoxGeometry(0.04, 0.04, 0.02), eyeMat, -0.07, 0.1, 0.25, 'isHead');
+  const eyeR = createPart(new THREE.BoxGeometry(0.04, 0.04, 0.02), eyeMat, 0.07, 0.1, 0.25, 'isHead');
+  headGroup.add(eyeL, eyeR);
+  model.add(headGroup);
+
+  // Legs (pivot at top)
+  const legGeo = new THREE.BoxGeometry(0.1, 0.4, 0.1);
+  const flLeg = new THREE.Group(); flLeg.position.set(-0.12, 0.35, 0.22); flLeg.add(createPart(legGeo, legMat, 0, -0.15, 0)); flLeg.userData.flLeg = true;
+  const frLeg = new THREE.Group(); frLeg.position.set(0.12, 0.35, 0.22); frLeg.add(createPart(legGeo, legMat, 0, -0.15, 0)); frLeg.userData.frLeg = true;
+  const blLeg = new THREE.Group(); blLeg.position.set(-0.12, 0.35, -0.22); blLeg.add(createPart(legGeo, legMat, 0, -0.15, 0)); blLeg.userData.blLeg = true;
+  const brLeg = new THREE.Group(); brLeg.position.set(0.12, 0.35, -0.22); brLeg.add(createPart(legGeo, legMat, 0, -0.15, 0)); brLeg.userData.brLeg = true;
+  model.add(flLeg, frLeg, blLeg, brLeg);
+
+  // Aura light
+  const light = new THREE.PointLight(0xff3300, 1.2, 4);
   light.position.y = 0.5;
-  mesh.add(light);
-  
+  model.add(light);
+
   mesh.userData.isDog = true;
-  mesh.userData.sprite = sprite;
   return mesh;
+}
+
+function findDogLimbs(model) {
+  const limbs = {};
+  model.traverse(c => {
+    if (c.userData.flLeg) limbs.flLeg = c;
+    if (c.userData.frLeg) limbs.frLeg = c;
+    if (c.userData.blLeg) limbs.blLeg = c;
+    if (c.userData.brLeg) limbs.brLeg = c;
+  });
+  return limbs;
 }
 
 function spawnSingle(scene, playerPos) {
@@ -251,7 +290,7 @@ function spawnSingle(scene, playerPos) {
   let mesh, mat;
   if (isDogRound) {
     mesh = createDogMesh();
-    mat = null; // Sprite uses internal material
+    mat = null; 
   } else {
     const res = createZombieMesh(isElite);
     mesh = res.mesh;
@@ -266,8 +305,8 @@ function spawnSingle(scene, playerPos) {
   let speed = gameState.getZombieSpeed();
   
   if (isDogRound) {
-    hp *= 0.5; // Dogs are squishy
-    speed *= 1.6; // Dogs are FAST
+    hp *= 0.5;
+    speed *= 1.6;
   } else if (isElite) {
     hp *= 2.5;
     speed *= 1.3;
@@ -276,8 +315,8 @@ function spawnSingle(scene, playerPos) {
   const zombie = {
     mesh,
     baseMaterial: mat,
-    limbs: isDogRound ? {} : findLimbs(mesh.userData.model),
-    model: isDogRound ? null : mesh.userData.model,
+    limbs: isDogRound ? findDogLimbs(mesh.userData.model) : findLimbs(mesh.userData.model),
+    model: mesh.userData.model,
     walkPhase: Math.random() * Math.PI * 2,
     alive: true,
     isDog: isDogRound,
@@ -504,11 +543,28 @@ export function updateZombies(delta, audioCallback) {
     if (!z.isDog) {
       animateWalk(z, delta, isMoving);
     } else {
-      // Dog bobbing animation
-      const sprite = z.mesh.userData.sprite;
-      if (sprite) {
-        sprite.position.y = 0.45 + Math.sin(z.walkPhase * 8) * 0.05;
-        z.walkPhase += delta;
+      // Dog running animation (4-legged)
+      const limbs = z.limbs;
+      const speed = isMoving ? 14 : 3; // dogs run faster/twitchier
+      z.walkPhase += delta * speed;
+      const s = Math.sin(z.walkPhase);
+      const c = Math.cos(z.walkPhase);
+
+      if (limbs.flLeg) {
+        // Front-left and Back-right move together, Front-right and Back-left move together
+        limbs.flLeg.rotation.x = s * 0.8;
+        limbs.brLeg.rotation.x = s * 0.8;
+        limbs.frLeg.rotation.x = -s * 0.8;
+        limbs.blLeg.rotation.x = -s * 0.8;
+        
+        // Slight torso bob
+        z.model.position.y = -0.05 + Math.abs(c) * 0.05;
+        // Head bob
+        z.model.traverse(child => {
+            if (child.userData.isHead && child.parent.type === 'Group') {
+                child.parent.rotation.x = 0.1 + s * 0.1;
+            }
+        });
       }
     }
 
