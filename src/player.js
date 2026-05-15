@@ -37,6 +37,7 @@ const GRAPPLE_TIMEOUT = 2500; // ms
 export function isGrappleActive() {
   return grappleState !== 'idle';
 }
+const raycaster = new THREE.Raycaster();
 let hookMesh = null;
 let ropeMesh = null;
 
@@ -147,7 +148,8 @@ export function fireGrappleHook() {
   
   raycaster.setFromCamera(new THREE.Vector2(0, 0), getCamera());
   const intersects = raycaster.intersectObjects(getScene().children, true);
-  const valid = intersects.find(i => i.point.y > 0.5 && i.distance < 80);
+  // Ignore objects that are too close (like the camera's weapon viewmodels)
+  const valid = intersects.find(i => i.distance > 1.0 && i.distance < 80);
   
   if (valid) {
     grappleTarget.copy(valid.point);

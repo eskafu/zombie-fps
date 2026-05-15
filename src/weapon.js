@@ -176,7 +176,7 @@ const WEAPON_DEFS = {
   },
   grapplegun: {
     name: 'PISTOLA GANCHO',
-    magSize: 1,
+    magSize: 3, // Testing: 3 charges
     maxReserve: 0,
     cooldown: 1.0,
     reloadTime: 0,
@@ -198,12 +198,15 @@ const VIEWMODEL_REST = new THREE.Vector3(0.28, -0.28, -0.55);
 
 // Aim assist (touch input only). Snaps fire direction toward nearest zombie
 // inside a small cone around forward. Disabled by default for desktop.
+let aimAssistEnabled = false;
+const AIM_ASSIST_CONE = Math.cos(THREE.MathUtils.degToRad(7));  // ~7° half-angle
+const AIM_ASSIST_RANGE = 35;
 const AIM_ASSIST_BLEND = 0.55;  // 0 = no help, 1 = full snap
 
 export function setAimAssist(enabled) { aimAssistEnabled = !!enabled; }
 
-let currentWeapon = 'pistol';
-let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: false };
+let currentWeapon = 'grapplegun';
+let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: true };
 
 let ammoState = {
   pistol:   { current: 8,  reserve: 56 },
@@ -212,7 +215,7 @@ let ammoState = {
   aliengun: { current: 10, reserve: 30 },
   raygun:   { current: 6,  reserve: 18 },
   katana:   { current: 1,  reserve: 0 },
-  grapplegun: { current: 1, reserve: 0 },
+  grapplegun: { current: 3, reserve: 0 },
 };
 
 let lastShotTime = 0;
@@ -428,8 +431,8 @@ export function initWeapon() {
 }
 
 export function resetWeapon() {
-  currentWeapon = 'pistol';
-  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: false };
+  currentWeapon = 'grapplegun'; // Start with grapple gun for testing
+  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: true };
   for (const [type, def] of Object.entries(WEAPON_DEFS)) {
     ammoState[type].current = def.magSize;
     ammoState[type].reserve = def.maxReserve;
@@ -453,7 +456,7 @@ function onKeyDown(e) {
     return;
   }
 
-  // Weapon slots 1-4
+  // Weapon slots 1-6 + 0 for Grapple Gun
   const slotMap = {
     'Digit1': 'pistol',
     'Digit2': 'shotgun',
@@ -461,6 +464,7 @@ function onKeyDown(e) {
     'Digit4': 'aliengun',
     'Digit5': 'raygun',
     'Digit6': 'katana',
+    'Digit0': 'grapplegun',
   };
   const type = slotMap[e.code];
   if (type && ownedWeapons[type]) {
@@ -677,8 +681,10 @@ function shoot() {
         }
       };
       setTimeout(waitAndDiscard, 500);
+    } else {
+      // If grapple failed (e.g., aimed at sky), don't play animation
+      return;
     }
-    return;
   }
 
   const camera = getCamera();
@@ -688,8 +694,8 @@ function shoot() {
   playShot(currentWeapon);
 
   // Muzzle flash
-  muzzleFlash.material.opacity = def.melee ? 0 : 1;
-  muzzleTimer = def.melee ? 0 : currentWeapon === 'shotgun' ? 0.10 : 0.06;
+  muzzleFlash.material.opacity = (def.melee || def.special === 'grapple') ? 0 : 1;
+  muzzleTimer = (def.melee || def.special === 'grapple') ? 0 : currentWeapon === 'shotgun' ? 0.10 : 0.06;
 
   // Recoil
   recoilTimer = def.melee ? 0.22 : currentWeapon === 'shotgun' ? 0.18 : 0.12;

@@ -170,6 +170,7 @@ export function updateHUD(delta) {
       { key: 'aliengun', num: '4', label: 'ALIEN' },
       { key: 'raygun', num: '5', label: 'RAYGUN' },
       { key: 'katana', num: '6', label: 'KATANA' },
+      { key: 'grapplegun', num: '0', label: 'GANCHO' },
     ];
     const items = [];
     for (const s of slotDefs) {
