@@ -419,7 +419,8 @@ export function updateZombies(delta, audioCallback) {
       z.mesh.scale.setScalar(pulse);
     }
 
-    if (dist < DAMAGE_DISTANCE && z.damageCooldown <= 0) {
+    const vertDist = Math.abs(playerPos.y - z.mesh.position.y);
+    if (dist < DAMAGE_DISTANCE && vertDist < 2.0 && z.damageCooldown <= 0) {
       z.damageCooldown = DAMAGE_COOLDOWN;
       gameState.takeDamage();
       if (audioCallback) audioCallback();

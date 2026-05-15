@@ -292,9 +292,12 @@ function createVillage() {
     group.add(trim);
 
     // Roof (Properly scaled to match the rectangular base)
+    // DoubleSide so it looks solid when player stands underneath/inside
     const roofH = 1.5 + seededRandom() * 1.5;
+    const roofRenderMat = rMat.clone();
+    roofRenderMat.side = THREE.DoubleSide;
     const roofGeo = new THREE.ConeGeometry(1, roofH, 4);
-    const roof = new THREE.Mesh(roofGeo, rMat);
+    const roof = new THREE.Mesh(roofGeo, roofRenderMat);
     
     // A ConeGeometry with radius 1 and 4 segments rotated by PI/4 has a square base of width sqrt(2).
     // We scale it so the base perfectly matches the house dimensions + overhang.
@@ -444,10 +447,15 @@ function createVillage() {
     // Calculate rotated bounds for collision
     const c = Math.cos(rotation), s = Math.sin(rotation);
     
-    // Main Body Collider
+    // Main Body Collider — maxY is the flat roof trim top, player stands here
     const halfX = Math.abs(c) * width / 2 + Math.abs(s) * depth / 2;
     const halfZ = Math.abs(s) * width / 2 + Math.abs(c) * depth / 2;
-    barrierColliders.push({ x, z, halfX, halfZ, maxY: height });
+    // height + 0.2 puts player feet on the trim gutter, below the cone base overhang
+    barrierColliders.push({ x, z, halfX, halfZ, maxY: height + 0.2 });
+
+    // Cone roof blocker: narrow collider at the very peak so player can't walk INTO the tip
+    // Use a much smaller footprint (30% of house) and full roof height as maxY
+    barrierColliders.push({ x, z, halfX: halfX * 0.3, halfZ: halfZ * 0.3, maxY: height + roofH });
 
     // Extension Collider
     if (hasExt) {
