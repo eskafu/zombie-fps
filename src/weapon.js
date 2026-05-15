@@ -405,6 +405,7 @@ function createMuzzleFlash() {
 export function initWeapon() {
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('wheel', onWheel, { passive: false });
 
   const camera = getCamera();
 
@@ -472,7 +473,29 @@ function onKeyDown(e) {
   }
 }
 
+function onWheel(e) {
+  if (gameState.state !== 'playing' || !document.pointerLockElement) return;
+
+  const order = ['pistol', 'shotgun', 'smg', 'aliengun', 'raygun', 'katana', 'grapplegun'];
+  const owned = order.filter(w => ownedWeapons[w]);
+  if (owned.length <= 1) return;
+
+  let currentIndex = owned.indexOf(currentWeapon);
+  if (currentIndex === -1) currentIndex = 0;
+
+  if (e.deltaY > 0) {
+    // Scroll down -> Next weapon
+    currentIndex = (currentIndex + 1) % owned.length;
+  } else if (e.deltaY < 0) {
+    // Scroll up -> Previous weapon
+    currentIndex = (currentIndex - 1 + owned.length) % owned.length;
+  }
+
+  switchWeapon(owned[currentIndex]);
+}
+
 // ═══════════════════════════════════════════════════════════════
+
 // UPDATE (animation + timers)
 // ═══════════════════════════════════════════════════════════════
 export function updateWeapon(delta) {
