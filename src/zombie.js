@@ -185,7 +185,11 @@ function randomSpawnPosition(playerPos) {
       const dz = pt.z - playerPos.z;
       const dist = Math.sqrt(dx*dx + dz*dz);
       if (dist >= SPAWN_MIN_DIST) {
-        return pt.clone();
+        const p = pt.clone();
+        // Add small random offset so they never spawn exactly on top of each other
+        p.x += (Math.random() - 0.5) * 1.5;
+        p.z += (Math.random() - 0.5) * 1.5;
+        return p;
       }
     }
   }
