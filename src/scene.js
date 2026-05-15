@@ -24,6 +24,7 @@ export function initScene() {
   scene.fog = new THREE.FogExp2(0x020308, 0.035);
 
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+  camera.name = 'camera';
   camera.position.set(0, 1.7, 0);
 
   // Add Flashlight to Camera

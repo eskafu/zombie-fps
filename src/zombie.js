@@ -35,14 +35,19 @@ const GEOS = {
   zombieLowerLeg: new THREE.BoxGeometry(0.14, 0.45, 0.14),
   
   dogBody: new THREE.BoxGeometry(0.32, 0.32, 0.65),
+  dogNeck: new THREE.BoxGeometry(0.18, 0.18, 0.25),
   dogHead: new THREE.BoxGeometry(0.24, 0.24, 0.32),
   dogEye: new THREE.BoxGeometry(0.04, 0.04, 0.02),
-  dogLeg: new THREE.BoxGeometry(0.1, 0.4, 0.1)
+  dogLeg: new THREE.BoxGeometry(0.1, 0.4, 0.1),
+  
+  batBody: new THREE.BoxGeometry(0.15, 0.15, 0.2),
+  batWing: new THREE.BoxGeometry(0.3, 0.02, 0.15)
 };
 
 let spawnAccumulator = 0;
 let wasRoundStarting = false;
 let growlCooldown = 0;
+let globalBatAttackCooldown = 0; // Cooldown between different bat attacks
 
 function findLimbs(model) {
   const limbs = {};
@@ -245,9 +250,18 @@ function createDogMesh() {
   const body = createPart(GEOS.dogBody, bodyMat, 0, 0.45, 0);
   model.add(body);
 
-  // Head
+  // Neck (pivot at front of body)
+  const neck = new THREE.Group();
+  neck.position.set(0, 0.52, 0.22);
+  const neckMesh = createPart(GEOS.dogNeck, bodyMat, 0, 0.05, 0.08);
+  neckMesh.rotation.x = -0.4;
+  neck.add(neckMesh);
+  model.add(neck);
+  model.userData.neckGroup = neck;
+
+  // Head (pivot at neck end)
   const headGroup = new THREE.Group();
-  headGroup.position.set(0, 0.55, 0.3);
+  headGroup.position.set(0, 0.15, 0.2); // Relative to neck
   const head = createPart(GEOS.dogHead, bodyMat, 0, 0.05, 0.1, 'isHead');
   headGroup.add(head);
 
@@ -255,7 +269,8 @@ function createDogMesh() {
   const eyeL = createPart(GEOS.dogEye, eyeMat, -0.07, 0.1, 0.25, 'isHead');
   const eyeR = createPart(GEOS.dogEye, eyeMat, 0.07, 0.1, 0.25, 'isHead');
   headGroup.add(eyeL, eyeR);
-  model.add(headGroup);
+  neck.add(headGroup); // Head is child of neck
+  model.userData.headGroup = headGroup;
 
   // Legs (pivot at top)
   const flLeg = new THREE.Group(); flLeg.position.set(-0.12, 0.35, 0.22); flLeg.add(createPart(GEOS.dogLeg, legMat, 0, -0.15, 0)); flLeg.userData.flLeg = true;
@@ -265,6 +280,51 @@ function createDogMesh() {
   model.add(flLeg, frLeg, blLeg, brLeg);
 
   mesh.userData.isDog = true;
+  return mesh;
+}
+
+function createBatMesh() {
+  const mesh = new THREE.Group();
+  const model = new THREE.Group();
+  mesh.add(model);
+  mesh.userData.model = model;
+
+  const batMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1 });
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 10 });
+
+  function createPart(geo, mat, x, y, z, tag) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    if (tag) m.userData[tag] = true;
+    return m;
+  }
+
+  // Body
+  const body = createPart(GEOS.batBody, batMat, 0, 0, 0);
+  model.add(body);
+
+  // Eyes
+  const eyeL = createPart(new THREE.BoxGeometry(0.03, 0.03, 0.01), eyeMat, -0.04, 0.02, 0.08);
+  const eyeR = createPart(new THREE.BoxGeometry(0.03, 0.03, 0.01), eyeMat, 0.04, 0.02, 0.08);
+  model.add(eyeL, eyeR);
+
+  // Wings (pivot at body sides)
+  const leftWingGroup = new THREE.Group();
+  leftWingGroup.position.set(-0.07, 0, 0);
+  const lWing = createPart(GEOS.batWing, batMat, -0.15, 0, 0);
+  leftWingGroup.add(lWing);
+  leftWingGroup.userData.isLeftWing = true;
+  model.add(leftWingGroup);
+
+  const rightWingGroup = new THREE.Group();
+  rightWingGroup.position.set(0.07, 0, 0);
+  const rWing = createPart(GEOS.batWing, batMat, 0.15, 0, 0);
+  rightWingGroup.add(rWing);
+  rightWingGroup.userData.isRightWing = true;
+  model.add(rightWingGroup);
+
+  mesh.userData.isBat = true;
   return mesh;
 }
 
@@ -285,10 +345,11 @@ function spawnSingle(scene, playerPos) {
 
   const isDogRound = gameState.isDogRound;
   const isElite = !isDogRound && gameState.round >= 5 && Math.random() < 0.20;
+  const isBat = isDogRound && Math.random() < 0.4; // 40% chance of bats during dog round
   
   let mesh, mat;
   if (isDogRound) {
-    mesh = createDogMesh();
+    mesh = isBat ? createBatMesh() : createDogMesh();
     mat = null; 
   } else {
     const res = createZombieMesh(isElite);
@@ -297,6 +358,9 @@ function spawnSingle(scene, playerPos) {
   }
   
   const pos = randomSpawnPosition(playerPos);
+  if (isBat) {
+    pos.y = playerPos.y + 4 + Math.random() * 2;
+  }
   mesh.position.copy(pos);
   scene.add(mesh);
 
@@ -305,7 +369,7 @@ function spawnSingle(scene, playerPos) {
   
   if (isDogRound) {
     hp *= 0.7;
-    speed *= 2.2;
+    speed *= 2.8; // Faster as requested
   } else if (isElite) {
     hp *= 2.5;
     speed *= 1.3;
@@ -314,11 +378,12 @@ function spawnSingle(scene, playerPos) {
   const zombie = {
     mesh,
     baseMaterial: mat,
-    limbs: isDogRound ? findDogLimbs(mesh.userData.model) : findLimbs(mesh.userData.model),
+    limbs: isDogRound ? (isBat ? {} : findDogLimbs(mesh.userData.model)) : findLimbs(mesh.userData.model),
     model: mesh.userData.model,
     walkPhase: Math.random() * Math.PI * 2,
     alive: true,
-    isDog: isDogRound,
+    isDog: isDogRound && !isBat,
+    isBat: isBat,
     isElite,
     damageCooldown: 0,
     deathTimer: 0,
@@ -327,11 +392,15 @@ function spawnSingle(scene, playerPos) {
     wanderAngle: Math.random() * Math.PI * 2,
     stuckTimer: 0,
     evadeTimer: 0,
-    evadeAngle: 0
+    evadeAngle: 0,
+    targetY: pos.y,
+    diveTimer: 0,
+    hoverTimer: 0,
+    isKamikaze: false
   };
 
-  if (isDogRound) {
-    mesh.scale.setScalar(1.4);
+  if (zombie.isDog) {
+    mesh.scale.setScalar(1.5); // Half of the previous 3.0 scale
   }
 
   zombies.push(zombie);
@@ -454,6 +523,9 @@ export function updateZombies(delta, audioCallback) {
 
   const baseSpeed = gameState.getZombieSpeed();
   const isLastZombie = zombies.filter(z => z.alive).length === 1;
+  
+  if (globalBatAttackCooldown > 0) globalBatAttackCooldown -= delta;
+
   // Find the actual last alive zombie for pulsing
   let lastAliveZombie = null;
   if (isLastZombie) {
@@ -486,42 +558,74 @@ export function updateZombies(delta, audioCallback) {
       .setY(0);
 
     const dist = dir.length();
-    const isMoving = dist > 0.01 && dist > DAMAGE_DISTANCE * 0.8;
+    let isMoving = dist > 0.01 && dist > DAMAGE_DISTANCE * 0.8;
+
+    if (z.isBat) {
+      isMoving = true;
+      const camera = scene.getObjectByName('camera') || { getWorldDirection: () => new THREE.Vector3(0,0,-1), position: playerPos };
+      const playerForward = new THREE.Vector3();
+      if (camera.getWorldDirection) camera.getWorldDirection(playerForward);
+      playerForward.y = 0;
+      playerForward.normalize();
+
+      if (z.isKamikaze) {
+        // Kamikaze dive: go straight for the player fast
+        const diveDir = new THREE.Vector3().subVectors(playerPos, z.mesh.position).normalize();
+        z.mesh.position.addScaledVector(diveDir, baseSpeed * 6 * delta); 
+        
+        // Tilt downwards during dive
+        z.model.rotation.x = 1.0;
+      } else {
+        // Hovering state: try to stay in front and high
+        const hoverTarget = playerPos.clone()
+          .addScaledVector(playerForward, 8) 
+          .add(new THREE.Vector3(0, 6 + Math.sin(performance.now() * 0.003) * 0.5, 0));
+        
+        const hoverDir = new THREE.Vector3().subVectors(hoverTarget, z.mesh.position);
+        const hoverDist = hoverDir.length();
+        if (hoverDist > 0.1) {
+          hoverDir.normalize();
+          z.mesh.position.addScaledVector(hoverDir, baseSpeed * 2 * delta);
+        }
+
+        z.hoverTimer += delta;
+        
+        // After 30s hover, check if can attack
+        if (z.hoverTimer > 30 && globalBatAttackCooldown <= 0) {
+          z.isKamikaze = true;
+          globalBatAttackCooldown = 30; // 30s pause between attacks
+        }
+      }
+    }
 
     if (isMoving) {
       dir.normalize();
 
       if (z.evadeTimer > 0) {
         z.evadeTimer -= delta;
-        // Se estiver a tentar desviar, roda o eixo na direção definida
         dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), z.evadeAngle);
       } else {
-        // Wobble normal se não estiver preso
         z.wanderAngle += delta * 1.5;
         const wobble = new THREE.Vector3(Math.cos(z.wanderAngle), 0, Math.sin(z.wanderAngle)).multiplyScalar(0.2);
         dir.add(wobble).normalize();
       }
 
-      const speed = isLastZombie ? baseSpeed * 0.35 : z.isElite ? baseSpeed * 1.8 : baseSpeed;
+      const speed = isLastZombie ? baseSpeed * 0.35 : (z.isElite ? baseSpeed * 1.8 : (z.isDog || z.isBat ? baseSpeed * 2.8 : baseSpeed));
       const step = speed * delta;
       
       const beforePos = z.mesh.position.clone();
       z.mesh.position.addScaledVector(dir, Math.min(step, dist));
-      resolveCollision(z.mesh.position, 0.5);
+      
+      if (!z.isBat) {
+        resolveCollision(z.mesh.position, z.isDog ? 1.0 : 0.5);
+      }
 
-      // Stuck detection: se não andou, tenta rodar 45 graus
       const movedDist = z.mesh.position.distanceTo(beforePos);
-      if (movedDist < step * 0.2) {
+      if (movedDist < step * 0.2 && !z.isBat) {
         z.stuckTimer += delta;
         if (z.stuckTimer > 0.4) {
-          if (z.evadeTimer > 0) {
-            // Se já estava a desviar e continuou preso, adiciona mais 45 graus!
-            z.evadeAngle += (z.evadeAngle > 0 ? 1 : -1) * (Math.PI / 4);
-          } else {
-            // Primeiro bloqueio: tenta 45 graus para um dos lados
-            z.evadeAngle = (z.wanderAngle % 2 > 1 ? 1 : -1) * (Math.PI / 4);
-          }
-          z.evadeTimer = 1.0; // Mantém a rotação por 1 segundo
+          z.evadeAngle = (z.wanderAngle % 2 > 1 ? 1 : -1) * (Math.PI / 4);
+          z.evadeTimer = 1.0;
           z.stuckTimer = 0;
         }
       } else {
@@ -529,50 +633,75 @@ export function updateZombies(delta, audioCallback) {
       }
     }
 
-    // Zombie separation — push apart from other zombies so they don't stack
+    // Enemy separation
     for (let j = i - 1; j >= 0; j--) {
       const other = zombies[j];
       if (!other.alive) continue;
       const sep = new THREE.Vector3().subVectors(z.mesh.position, other.mesh.position);
-      sep.y = 0;
+      if (z.isBat || other.isBat) {
+        // Vertical separation for bats
+      } else {
+        sep.y = 0;
+      }
       const sepDist = sep.length();
-      if (sepDist < ZOMBIE_SEPARATION && sepDist > 0.001) {
-        const push = (ZOMBIE_SEPARATION - sepDist) * 0.5;
+      const minSep = (z.isDog ? 2.5 : 1.0) + (other.isDog ? 2.5 : 1.0);
+      const targetSep = minSep * 0.5;
+      if (sepDist < targetSep && sepDist > 0.001) {
+        const push = (targetSep - sepDist) * 0.5;
         sep.normalize().multiplyScalar(push);
         z.mesh.position.add(sep);
         other.mesh.position.sub(sep);
       }
     }
 
-    if (!z.isDog) {
+    if (!z.isDog && !z.isBat) {
       animateWalk(z, delta, isMoving);
-    } else {
+    } else if (z.isDog) {
       // Dog running animation (4-legged)
       const limbs = z.limbs;
-      const speed = isMoving ? 14 : 3; // dogs run faster/twitchier
+      const speed = isMoving ? 18 : 4; 
       z.walkPhase += delta * speed;
       const s = Math.sin(z.walkPhase);
       const c = Math.cos(z.walkPhase);
 
       if (limbs.flLeg) {
-        // Front-left and Back-right move together, Front-right and Back-left move together
         limbs.flLeg.rotation.x = s * 0.8;
         limbs.brLeg.rotation.x = s * 0.8;
         limbs.frLeg.rotation.x = -s * 0.8;
         limbs.blLeg.rotation.x = -s * 0.8;
         
-        // Slight torso bob
         z.model.position.y = -0.05 + Math.abs(c) * 0.05;
-        // Head bob
-        z.model.traverse(child => {
-            if (child.userData.isHead && child.parent.type === 'Group') {
-                child.parent.rotation.x = 0.1 + s * 0.1;
+
+        // Articulated Neck/Head
+        const neck = z.model.userData.neckGroup;
+        const head = z.model.userData.headGroup;
+        if (neck && head) {
+            neck.rotation.x = -0.3 + Math.sin(z.walkPhase * 0.5) * 0.15;
+            head.rotation.x = 0.2 + Math.cos(z.walkPhase * 0.5) * 0.1;
+            // Look slightly up at player if close
+            if (dist < 8) {
+                neck.rotation.x -= 0.2;
             }
-        });
+        }
       }
+    } else if (z.isBat) {
+      // Bat wing flapping
+      z.walkPhase += delta * 15;
+      const s = Math.sin(z.walkPhase);
+      z.model.traverse(child => {
+        if (child.userData.isLeftWing) child.rotation.z = s * 0.8;
+        if (child.userData.isRightWing) child.rotation.z = -s * 0.8;
+      });
+      // Bat body tilt
+      z.model.rotation.x = 0.3 + Math.sin(z.walkPhase * 0.5) * 0.2;
     }
 
-    z.mesh.lookAt(new THREE.Vector3(playerPos.x, z.mesh.position.y, playerPos.z));
+    if (z.isBat) {
+        // Bats tilt towards movement/player
+        z.mesh.lookAt(playerPos);
+    } else {
+        z.mesh.lookAt(new THREE.Vector3(playerPos.x, z.mesh.position.y, playerPos.z));
+    }
 
     // Last zombie pulsing
     if (z === lastAliveZombie) {
@@ -585,6 +714,13 @@ export function updateZombies(delta, audioCallback) {
       z.damageCooldown = DAMAGE_COOLDOWN;
       gameState.takeDamage();
       if (audioCallback) audioCallback();
+      
+      if (z.isBat && z.isKamikaze) {
+        // Kamikaze dies on hit
+        z.alive = false;
+        z.deathTimer = 0;
+        gameState.onZombieKilled();
+      }
     }
   }
 

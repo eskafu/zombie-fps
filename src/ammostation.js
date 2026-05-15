@@ -74,6 +74,11 @@ export function tryBuyAmmo() {
   if (gameState.points < AMMO_COST) return false;
 
   gameState.points -= AMMO_COST;
+  
+  // Power Tripwire: Ammo purchase resets power
+  gameState.resetPower();
+  import('./energy.js').then(m => m.resetSwitches());
+
   refillAmmoSilent();
   lowerWeaponBriefly();
   stationMessage = 'MUNIÇÃO REPOSTA';

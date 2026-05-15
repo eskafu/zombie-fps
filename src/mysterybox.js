@@ -121,6 +121,11 @@ export function tryActivateBox() {
   if (available.length === 0) return false; // All weapons owned
 
   gameState.points -= BOX_COST;
+  
+  // Power Tripwire: Box activation resets power
+  gameState.resetPower();
+  import('./energy.js').then(m => m.resetSwitches());
+
   boxMessage = 'A ABRIR...';
   boxMessageTimer = REVEAL_DURATION;
   activateBox(available);

@@ -127,6 +127,11 @@ export const gameState = {
     }
   },
 
+  resetPower() {
+    this.isPowerOn = false;
+    this.energySwitchesActive = 0;
+  },
+
   buyPerk(name, cost) {
     if (this.points < cost) return false;
     if (this.perks[name]) return false;

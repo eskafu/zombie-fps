@@ -7,27 +7,42 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Zombie FPS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=94d731c">
 </head>
 <body>
     <!-- Menu Principal -->
     <div id="menu">
-        <h1>ZOMBIE SURVIVAL</h1>
-        <p class="signature">by GUANO</p>
-        <p>Último Score: <span id="last-score">0</span> pts</p>
-        <p id="menu-max-round">Melhor Round: <span id="best-round">1</span></p>
-        <p id="menu-max-kills">Melhor Score: <span id="best-kills">0</span> kills</p>
-        <button id="start-button">INICIAR JOGO</button>
-        <button id="settings-button">DEFINIÇÕES</button>
-        <div id="menu-leaderboard">
-            <h3>🏆 TOP 10</h3>
-            <ol id="menu-leaderboard-list"></ol>
-            <p id="menu-leaderboard-loading">A carregar...</p>
+        <div class="logo-wrapper">
+            <img src="assets/logo.png" alt="Zombie Apocalypse" class="main-logo-img">
         </div>
+
+        <div class="menu-content">
+            <!-- Ações Principais -->
+            <div class="menu-actions">
+                <button id="start-button">INICIAR JOGO</button>
+                <button id="settings-button">DEFINIÇÕES</button>
+            </div>
+
+            <!-- Stats Horizontais -->
+            <div class="stats-horizontal">
+                <span>ÚLTIMO SCORE: <strong id="last-score">0</strong></span>
+                <span>MELHOR ROUND: <strong id="best-round">1</strong></span>
+                <span>RECORDE KILLS: <strong id="best-kills">0</strong></span>
+            </div>
+
+            <!-- Leaderboard por baixo -->
+            <div id="menu-leaderboard" class="menu-panel">
+                <h3>🏆 TOP 10 MUNDIAL</h3>
+                <ol id="menu-leaderboard-list"></ol>
+                <p id="menu-leaderboard-loading">A carregar...</p>
+            </div>
+        </div>
+
         <div class="instructions">
-            <p>WASD - Mover &nbsp;|&nbsp; Mouse - Olhar &nbsp;|&nbsp; Clique - Atirar</p>
-            <p>Shift - Sprint &nbsp;|&nbsp; R - Recarregar &nbsp;|&nbsp; E - Comprar</p>
-            <p>ESC / P - Pausa &nbsp;|&nbsp; 1-6 - Armas</p>
+            <span>WASD Mover</span> <span>MOUSE Olhar/Atirar</span> <span>SHIFT Sprint</span> <span>R Recarregar</span> <span>E Interagir</span> <span>1-6 Armas</span>
         </div>
     </div>
 

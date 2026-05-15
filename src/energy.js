@@ -83,6 +83,14 @@ export function tryInteractSwitch() {
   return false;
 }
 
+export function resetSwitches() {
+  switches.forEach(s => {
+    s.active = false;
+    s.lightMesh.material.color.setHex(0xff0000); // Red
+    s.pLight.color.setHex(0xff0000);
+  });
+}
+
 export function getNearestSwitchLabel() {
   const playerPos = getPlayerPosition();
   for (let s of switches) {

@@ -209,7 +209,7 @@ const AIM_ASSIST_BLEND = 0.55;  // 0 = no help, 1 = full snap
 export function setAimAssist(enabled) { aimAssistEnabled = !!enabled; }
 
 let currentWeapon = 'pistol';
-let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: false };
+let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: false, grapplegun: false };
 
 let ammoState = {
   pistol:   { current: 10, reserve: 70 },
@@ -273,6 +273,11 @@ export function buyWeapon(type) {
   if (!canBuyWeapon(type)) return false;
   const def = WEAPON_DEFS[type];
   gameState.points -= def.unlockCost;
+
+  // Power Tripwire: Weapon purchase resets power
+  gameState.resetPower();
+  import('./energy.js').then(m => m.resetSwitches());
+
   unlockWeapon(type);
   return true;
 }
@@ -446,7 +451,7 @@ export function initWeapon() {
 
 export function resetWeapon() {
   currentWeapon = 'pistol';
-  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: false };
+  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: false, grapplegun: false };
   for (const [type, def] of Object.entries(WEAPON_DEFS)) {
     ammoState[type].current = def.magSize;
     ammoState[type].reserve = def.maxReserve;

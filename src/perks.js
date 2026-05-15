@@ -21,10 +21,10 @@ const PERK_DEFS = {
   },
   quickRevive: {
     name: 'Quick Revive',
-    cost: 500,
+    cost: 1500,
     color: 0x2244aa,
     pos: new THREE.Vector3(-10, 0, 10),
-    needsPower: false
+    needsPower: true
   }
 };
 
@@ -85,9 +85,15 @@ export function tryBuyPerk() {
       if (m.def.needsPower && !gameState.isPowerOn) return false;
 
       const success = gameState.buyPerk(id, m.def.cost);
-      if (success && id === 'quickRevive' && gameState.quickReviveUses >= 2) {
-        m.group.visible = false;
-        m.light.visible = false;
+      if (success) {
+        // Power Tripwire: Each purchase resets power
+        gameState.resetPower();
+        import('./energy.js').then(m => m.resetSwitches());
+        
+        if (id === 'quickRevive' && gameState.quickReviveUses >= 2) {
+          m.group.visible = false;
+          m.light.visible = false;
+        }
       }
       return success;
     }
