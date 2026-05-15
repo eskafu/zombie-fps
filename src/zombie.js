@@ -2,26 +2,18 @@ import * as THREE from 'three';
 import { getScene, resolveCollision } from './scene.js';
 import { getPlayerPosition } from './player.js';
 import { gameState } from './game-state.js';
-import { createCelMaterial, applyToonToGroup, createOutlineMaterial } from './celshade.js';
+import { createCelMaterial, applyOutlineToMesh } from './celshade.js';
+import { makeGrungeMaterial } from './textures.js';
 import { tryDropPowerup } from './powerups.js';
 import { playZombieGrowl } from './audio.js';
 
 const zombies = [];
 const particles = [];
-const zombieGeometry = createZombieGeometry();
-const zombieColors = [0x4a5a2a, 0x6a4a2a, 0x5a3a4a, 0x6a5a1a, 0x5a4a3a];
-const flashCelMaterial = createCelMaterial(0xff8844);
-const eliteOutlineMaterial = (() => {
-  const m = createOutlineMaterial();
-  m.uniforms.uColor = { value: new THREE.Color(0xffaa00) };
-  m.fragmentShader = `
-    uniform vec3 uColor;
-    void main() {
-      gl_FragColor = vec4(uColor, 1.0);
-    }
-  `;
-  return m;
-})();
+const skinColors = [0x708060, 0x8a9a7a, 0x6a7a6a, 0x5a6a5a, 0x6b7762];
+const shirtColors = [0x553333, 0x334455, 0x444433, 0x554433, 0x3a3a3a];
+const pantsColors = [0x222233, 0x2a2a2a, 0x332a22, 0x223322, 0x1f1f2e];
+
+const flashMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0xffaa44, emissiveIntensity: 0.8, roughness: 1 });
 
 const DAMAGE_DISTANCE = 1.8;
 const MAX_ZOMBIES = 24;
@@ -34,54 +26,9 @@ let spawnAccumulator = 0;
 let wasRoundStarting = false;
 let growlCooldown = 0;
 
-function makeLimb(geo, x, y, z, tag) {
-  const m = new THREE.Mesh(geo);
-  m.position.set(x, y, z);
-  m.castShadow = true;
-  if (tag) m.userData[tag] = true;
-  return m;
-}
-
-function createZombieGeometry() {
-  const group = new THREE.Group();
-
-  const torsoGeo = new THREE.CapsuleGeometry(0.32, 0.7, 4, 10);
-  const torso = makeLimb(torsoGeo, 0, 1.35, 0);
-  group.add(torso);
-
-  const headGeo = new THREE.SphereGeometry(0.27, 14, 12);
-  const head = makeLimb(headGeo, 0, 2.0, 0, 'isHead');
-  group.add(head);
-
-  const jawGeo = new THREE.BoxGeometry(0.32, 0.12, 0.28);
-  const jaw = new THREE.Mesh(jawGeo);
-  jaw.position.set(0, 1.88, 0.05);
-  jaw.castShadow = true;
-  jaw.userData.isHead = true;
-  group.add(jaw);
-
-  const armGeo = new THREE.CapsuleGeometry(0.1, 0.55, 4, 8);
-  const leftArm = makeLimb(armGeo, -0.42, 1.55, 0.15, 'leftArm');
-  leftArm.rotation.x = -0.5;
-  group.add(leftArm);
-
-  const rightArm = makeLimb(armGeo, 0.42, 1.55, 0.15, 'rightArm');
-  rightArm.rotation.x = -0.4;
-  group.add(rightArm);
-
-  const legGeo = new THREE.CapsuleGeometry(0.13, 0.6, 4, 8);
-  const leftLeg = makeLimb(legGeo, -0.18, 0.5, 0, 'leftLeg');
-  group.add(leftLeg);
-
-  const rightLeg = makeLimb(legGeo, 0.18, 0.5, 0, 'rightLeg');
-  group.add(rightLeg);
-
-  return group;
-}
-
-function findLimbs(mesh) {
+function findLimbs(model) {
   const limbs = {};
-  mesh.traverse(c => {
+  model.traverse(c => {
     if (c.userData.leftArm) limbs.leftArm = c;
     if (c.userData.rightArm) limbs.rightArm = c;
     if (c.userData.leftLeg) limbs.leftLeg = c;
@@ -91,22 +38,139 @@ function findLimbs(mesh) {
 }
 
 function createZombieMesh(isElite = false) {
-  const mesh = zombieGeometry.clone();
-  const color = isElite ? 0xcc2200 : zombieColors[Math.floor(Math.random() * zombieColors.length)];
-  const mat = createCelMaterial(color);
-  applyToonToGroup(mesh, color);
-  // Elite: golden outline + glow
+  const mesh = new THREE.Group();
+  const model = new THREE.Group(); // Inner group for sway animation
+  mesh.add(model);
+  mesh.userData.model = model;
+
+  const skinColor = isElite ? 0xcc4422 : skinColors[Math.floor(Math.random() * skinColors.length)];
+  const shirtColor = isElite ? 0xaa2211 : shirtColors[Math.floor(Math.random() * shirtColors.length)];
+  const pantsColor = isElite ? 0x221111 : pantsColors[Math.floor(Math.random() * pantsColors.length)];
+
+  const skinMat = makeGrungeMaterial(skinColor, 'skin');
+  const shirtMat = makeGrungeMaterial(shirtColor, 'clothes');
+  const pantsMat = makeGrungeMaterial(pantsColor, 'clothes');
+
+  // Store base materials on the mesh to easily reset from flash damage
+  mesh.userData.baseMaterials = { skinMat, shirtMat, pantsMat };
+
+  function createPart(geo, mat, x, y, z, tag) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    if (tag) m.userData[tag] = true;
+    m.userData.baseMat = mat;
+    return m;
+  }
+
+  // Torso
+  const torsoGeo = new THREE.BoxGeometry(0.4, 0.6, 0.22);
+  const torso = createPart(torsoGeo, shirtMat, 0, 1.3, 0, 'isTorso');
+  model.add(torso);
+
+  // Head Group (pivot at neck)
+  const headGroup = new THREE.Group();
+  headGroup.position.set(0, 1.6, 0);
+  const headGeo = new THREE.BoxGeometry(0.26, 0.26, 0.28);
+  const head = createPart(headGeo, skinMat, 0, 0.13, 0, 'isHead');
+  headGroup.add(head);
+
+  // Jaw
+  const jawGeo = new THREE.BoxGeometry(0.24, 0.08, 0.22);
+  const jaw = createPart(jawGeo, skinMat, 0, -0.04, 0.05, 'isHead');
+  jaw.rotation.x = 0.25; // slightly open
+  headGroup.add(jaw);
+
+  // Glowing Eyes
+  const eyeMat = new THREE.MeshStandardMaterial({ 
+    color: 0xffff00, 
+    emissive: 0xffaa00, 
+    emissiveIntensity: 6.0, 
+    roughness: 0.4 
+  });
+  const eyeGeo = new THREE.BoxGeometry(0.04, 0.03, 0.02);
+  const leftEye = createPart(eyeGeo, eyeMat, -0.06, 0.17, 0.141, 'isHead');
+  const rightEye = createPart(eyeGeo, eyeMat, 0.06, 0.17, 0.141, 'isHead');
+  headGroup.add(leftEye, rightEye);
+
+  model.add(headGroup);
+  headGroup.userData.headGroup = true;
+  model.userData.headGroup = headGroup;
+
+  // Arms
+  const upperArmGeo = new THREE.BoxGeometry(0.14, 0.35, 0.14);
+  const lowerArmGeo = new THREE.BoxGeometry(0.12, 0.35, 0.12);
+
+  // Left Arm
+  const leftArm = new THREE.Group();
+  leftArm.position.set(-0.27, 1.55, 0);
+  leftArm.add(createPart(upperArmGeo, shirtMat, 0, -0.175, 0));
+  const leftLowerArm = new THREE.Group();
+  leftLowerArm.position.set(0, -0.35, 0);
+  leftLowerArm.add(createPart(lowerArmGeo, skinMat, 0, -0.175, 0));
+  leftArm.add(leftLowerArm);
+  leftArm.userData.leftArm = true;
+  leftArm.userData.leftLowerArm = leftLowerArm;
+  model.add(leftArm);
+
+  // Right Arm
+  const rightArm = new THREE.Group();
+  rightArm.position.set(0.27, 1.55, 0);
+  rightArm.add(createPart(upperArmGeo, shirtMat, 0, -0.175, 0));
+  const rightLowerArm = new THREE.Group();
+  rightLowerArm.position.set(0, -0.35, 0);
+  rightLowerArm.add(createPart(lowerArmGeo, skinMat, 0, -0.175, 0));
+  rightArm.add(rightLowerArm);
+  rightArm.userData.rightArm = true;
+  rightArm.userData.rightLowerArm = rightLowerArm;
+  model.add(rightArm);
+
+  // Legs
+  const upperLegGeo = new THREE.BoxGeometry(0.16, 0.45, 0.16);
+  const lowerLegGeo = new THREE.BoxGeometry(0.14, 0.45, 0.14);
+
+  // Left Leg
+  const leftLeg = new THREE.Group();
+  leftLeg.position.set(-0.12, 1.0, 0);
+  leftLeg.add(createPart(upperLegGeo, pantsMat, 0, -0.225, 0));
+  const leftLowerLeg = new THREE.Group();
+  leftLowerLeg.position.set(0, -0.45, 0);
+  leftLowerLeg.add(createPart(lowerLegGeo, pantsMat, 0, -0.225, 0));
+  leftLeg.add(leftLowerLeg);
+  leftLeg.userData.leftLeg = true;
+  leftLeg.userData.leftLowerLeg = leftLowerLeg;
+  model.add(leftLeg);
+
+  // Right Leg
+  const rightLeg = new THREE.Group();
+  rightLeg.position.set(0.12, 1.0, 0);
+  rightLeg.add(createPart(upperLegGeo, pantsMat, 0, -0.225, 0));
+  const rightLowerLeg = new THREE.Group();
+  rightLowerLeg.position.set(0, -0.45, 0);
+  rightLowerLeg.add(createPart(lowerLegGeo, pantsMat, 0, -0.225, 0));
+  rightLeg.add(rightLowerLeg);
+  rightLeg.userData.rightLeg = true;
+  rightLeg.userData.rightLowerLeg = rightLowerLeg;
+  model.add(rightLeg);
+
+  // Elite zombies get a larger scale and a reddish tint instead of a cartoon outline
   if (isElite) {
     mesh.traverse(child => {
-      if (child.isMesh && child.userData.isOutline) {
-        child.material = eliteOutlineMaterial.clone();
-        child.scale.setScalar(1.12);
+      if (child.isMesh) {
+        // We could tint the material, but they already generate with reddish colors.
+        // The scale alone makes them menacing.
       }
     });
   }
-  const scale = isElite ? 1.08 + Math.random() * 0.08 : 0.92 + Math.random() * 0.18;
+
+  const scale = isElite ? 1.08 + Math.random() * 0.08 : 0.95 + Math.random() * 0.15;
   mesh.scale.setScalar(scale);
-  return { mesh, mat };
+
+  // Initial random offsets for variety
+  leftArm.rotation.z = -0.05 - Math.random() * 0.1;
+  rightArm.rotation.z = 0.05 + Math.random() * 0.1;
+
+  return { mesh, mat: skinMat };
 }
 
 function randomSpawnPosition(playerPos) {
@@ -114,8 +178,8 @@ function randomSpawnPosition(playerPos) {
   const dist = SPAWN_MIN_DIST + Math.random() * (SPAWN_MAX_DIST - SPAWN_MIN_DIST);
   const x = playerPos.x + Math.cos(angle) * dist;
   const z = playerPos.z + Math.sin(angle) * dist;
-  const clampedX = Math.max(-48, Math.min(48, x));
-  const clampedZ = Math.max(-48, Math.min(48, z));
+  const clampedX = Math.max(-108, Math.min(108, x));
+  const clampedZ = Math.max(-108, Math.min(108, z));
   return new THREE.Vector3(clampedX, 0, clampedZ);
 }
 
@@ -142,8 +206,9 @@ function spawnSingle(scene, playerPos) {
 
   const zombie = {
     mesh,
-    baseMaterial: mat,
-    limbs: findLimbs(mesh),
+    baseMaterial: mat, // legacy, no longer used for flashing all parts easily, but kept for compatibility
+    limbs: findLimbs(mesh.userData.model),
+    model: mesh.userData.model,
     walkPhase: Math.random() * Math.PI * 2,
     alive: true,
     damageCooldown: 0,
@@ -159,8 +224,13 @@ function spawnSingle(scene, playerPos) {
 
 function setZombieMaterial(zombie, material) {
   zombie.mesh.traverse(child => {
-    if (child.isMesh && !child.userData.isOutline) {
-      child.material = material;
+    if (child.isMesh) {
+      if (material) {
+        child.material = material;
+      } else {
+        // reset to base
+        child.material = child.userData.baseMat;
+      }
     }
   });
 }
@@ -168,15 +238,59 @@ function setZombieMaterial(zombie, material) {
 function animateWalk(z, delta, isMoving) {
   const limbs = z.limbs;
   if (!limbs.leftArm) return;
-  const speed = isMoving ? 6 : 0;
+  const speed = isMoving ? 7 : 2; // idle sway
   z.walkPhase += delta * speed;
   const s = Math.sin(z.walkPhase);
-  const armBase = -0.45;
-  limbs.leftArm.rotation.x = armBase + s * 0.3;
-  limbs.rightArm.rotation.x = armBase - s * 0.3;
-  limbs.leftLeg.rotation.x = -s * 0.5;
-  limbs.rightLeg.rotation.x = s * 0.5;
-  z.mesh.position.y = isMoving ? Math.abs(s) * 0.05 : 0;
+  const c = Math.cos(z.walkPhase);
+
+  const model = z.model;
+
+  if (isMoving) {
+    // Walking animation
+    limbs.leftArm.rotation.x = -1.3 + s * 0.3; // Arms reaching forward
+    limbs.rightArm.rotation.x = -1.3 - s * 0.3;
+    
+    // Lower arms bend towards player
+    if (limbs.leftArm.userData.leftLowerArm) limbs.leftArm.userData.leftLowerArm.rotation.x = -0.3 + Math.sin(z.walkPhase * 2) * 0.1;
+    if (limbs.rightArm.userData.rightLowerArm) limbs.rightArm.userData.rightLowerArm.rotation.x = -0.3 - Math.cos(z.walkPhase * 2) * 0.1;
+
+    limbs.leftLeg.rotation.x = -s * 0.6;
+    limbs.rightLeg.rotation.x = s * 0.6;
+
+    // Bend knees when leg goes back
+    if (limbs.leftLeg.userData.leftLowerLeg) limbs.leftLeg.userData.leftLowerLeg.rotation.x = Math.max(0, -s * 0.8);
+    if (limbs.rightLeg.userData.rightLowerLeg) limbs.rightLeg.userData.rightLowerLeg.rotation.x = Math.max(0, s * 0.8);
+
+    model.position.y = -0.10 + Math.abs(c) * 0.08;
+
+    // Torso and head sway
+    model.rotation.y = s * 0.1;
+    model.rotation.z = c * 0.05;
+    if (model.userData.headGroup) {
+      model.userData.headGroup.rotation.y = -s * 0.15; // head counter-steers
+      model.userData.headGroup.rotation.x = 0.1 + Math.sin(z.walkPhase * 1.5) * 0.05; // creepy head bob
+    }
+  } else {
+    // Idle animation
+    limbs.leftArm.rotation.x = -1.0 + s * 0.05;
+    limbs.rightArm.rotation.x = -1.0 - s * 0.05;
+    
+    if (limbs.leftArm.userData.leftLowerArm) limbs.leftArm.userData.leftLowerArm.rotation.x = -0.2;
+    if (limbs.rightArm.userData.rightLowerArm) limbs.rightArm.userData.rightLowerArm.rotation.x = -0.2;
+
+    limbs.leftLeg.rotation.x = 0;
+    limbs.rightLeg.rotation.x = 0;
+    if (limbs.leftLeg.userData.leftLowerLeg) limbs.leftLeg.userData.leftLowerLeg.rotation.x = 0;
+    if (limbs.rightLeg.userData.rightLowerLeg) limbs.rightLeg.userData.rightLowerLeg.rotation.x = 0;
+
+    model.position.y = -0.10;
+    model.rotation.y = s * 0.02;
+    model.rotation.z = 0;
+    if (model.userData.headGroup) {
+      model.userData.headGroup.rotation.y = Math.sin(z.walkPhase * 0.5) * 0.1;
+      model.userData.headGroup.rotation.x = 0.1;
+    }
+  }
 }
 
 export function updateZombies(delta, audioCallback) {
@@ -246,7 +360,7 @@ export function updateZombies(delta, audioCallback) {
 
     if (z.flashTimer > 0) {
       z.flashTimer -= delta;
-      if (z.flashTimer <= 0) setZombieMaterial(z, z.baseMaterial);
+      if (z.flashTimer <= 0) setZombieMaterial(z, null); // reset to base
     }
 
     const dir = new THREE.Vector3()
@@ -378,7 +492,7 @@ export function damageZombie(zombie, amount) {
     return true;
   }
   zombie.flashTimer = FLASH_DURATION;
-  setZombieMaterial(zombie, flashCelMaterial);
+  setZombieMaterial(zombie, flashMaterial);
   return false;
 }
 

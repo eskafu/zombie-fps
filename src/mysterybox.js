@@ -11,13 +11,14 @@ const BOX_COST = 1200;
 const BOX_APPEAR_ROUND = 3;
 
 // Weapons the box can give (excludes pistol)
-const BOX_WEAPONS = ['shotgun', 'smg', 'aliengun', 'raygun', 'katana'];
+const BOX_WEAPONS = ['shotgun', 'smg', 'aliengun', 'raygun', 'katana', 'grapplegun'];
 const WEAPON_LABELS = {
   shotgun: 'SHOTGUN',
   smg: 'SMG',
   aliengun: 'ALIEN GUN',
   raygun: 'RAYGUN',
   katana: 'KATANA',
+  grapplegun: 'PISTOLA GANCHO',
 };
 
 let boxGroup = null;

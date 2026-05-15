@@ -4,6 +4,7 @@ import { checkShot, damageZombie, getZombies } from './zombie.js';
 import { playShot, playReloadSound } from './audio.js';
 import { gameState } from './game-state.js';
 import { showHitMarker } from './hud.js';
+import { fireGrappleHook } from './player.js';
 
 // ═══════════════════════════════════════════════════════════════
 // SPRITESHEET CONFIG — grelha 3 linhas × 2 colunas (6 frames)
@@ -77,6 +78,17 @@ const SPRITESHEET_CONFIG = {
     },
     muzzleOffset: { x: 0, y: 0, z: 0 },
     planeSize: { w: 0.72, h: 0.72 },
+  },
+  grapplegun: {
+    path: 'assets/armas/grapplegun.png',
+    gridCols: 2, gridRows: 3,
+    animFrames: {
+      idle:   { start: 0, end: 0, fps: 1 },
+      fire:   { start: 1, end: 2, fps: 12 },
+      reload: { start: 3, end: 5, fps: 8 },
+    },
+    muzzleOffset: { x: 0, y: 0.1, z: -0.2 },
+    planeSize: { w: 0.55, h: 0.55 },
   },
 };
 
@@ -162,6 +174,20 @@ const WEAPON_DEFS = {
     melee: true,
     spritesheet: SPRITESHEET_CONFIG.katana,
   },
+  grapplegun: {
+    name: 'PISTOLA GANCHO',
+    magSize: 1,
+    maxReserve: 0,
+    cooldown: 1.0,
+    reloadTime: 0,
+    damage: 0,
+    headDamage: 0,
+    pellets: 0,
+    spread: 0,
+    range: 80,
+    special: 'grapple',
+    spritesheet: SPRITESHEET_CONFIG.grapplegun,
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -180,7 +206,7 @@ const AIM_ASSIST_BLEND = 0.55;  // 0 = no help, 1 = full snap
 export function setAimAssist(enabled) { aimAssistEnabled = !!enabled; }
 
 let currentWeapon = 'pistol';
-let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true };
+let ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: false };
 
 let ammoState = {
   pistol:   { current: 8,  reserve: 56 },
@@ -189,6 +215,7 @@ let ammoState = {
   aliengun: { current: 10, reserve: 30 },
   raygun:   { current: 6,  reserve: 18 },
   katana:   { current: 1,  reserve: 0 },
+  grapplegun: { current: 1, reserve: 0 },
 };
 
 let lastShotTime = 0;
@@ -405,7 +432,7 @@ export function initWeapon() {
 
 export function resetWeapon() {
   currentWeapon = 'pistol';
-  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true };
+  ownedWeapons = { pistol: true, shotgun: false, smg: false, aliengun: false, raygun: false, katana: true, grapplegun: false };
   for (const [type, def] of Object.entries(WEAPON_DEFS)) {
     ammoState[type].current = def.magSize;
     ammoState[type].reserve = def.maxReserve;
@@ -626,10 +653,27 @@ export function switchWeaponMobile(type) {
   switchWeapon(type);
 }
 
+function checkDiscard() {
+  const ammo = ammoState[currentWeapon];
+  if (ammo && ammo.current <= 0 && ammo.reserve <= 0 && currentWeapon === 'grapplegun') {
+    ownedWeapons['grapplegun'] = false;
+    switchWeaponMobile('pistol');
+  }
+}
+
 function shoot() {
   const def = WEAPON_DEFS[currentWeapon];
   const ammo = ammoState[currentWeapon];
-  if (!def.melee) ammo.current--;
+  if (!def.melee && def.special !== 'grapple') ammo.current--;
+
+  if (def.special === 'grapple') {
+    const success = fireGrappleHook();
+    if (success) {
+      ammo.current--;
+      setTimeout(checkDiscard, 1500); // Wait for hook to finish before discarding
+    }
+    return;
+  }
 
   const camera = getCamera();
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);

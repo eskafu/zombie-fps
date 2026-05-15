@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-import { getCamera, resolveCollision } from './scene.js';
+import { getCamera, resolveCollision, getGroundHeight, getScene } from './scene.js';
 import { gameState } from './game-state.js';
 import { isMobile } from './mobile.js';
 
@@ -18,7 +18,59 @@ const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const PLAYER_SPEED = 8;
 const SPRINT_MULTIPLIER = 1.6;
-const BOUNDARY = 48;
+const BOUNDARY = 108;
+const PLAYER_HEIGHT = 1.7;
+
+// Jump physics
+let jumpVelocity = 0;
+let canJump = true;
+const GRAVITY = 20;
+const JUMP_FORCE = 7;
+
+// Grappling hook
+let grappleState = 'idle'; // 'idle', 'shooting', 'pulling'
+const grappleTarget = new THREE.Vector3();
+const raycaster = new THREE.Raycaster();
+let hookMesh = null;
+let ropeMesh = null;
+
+function createHookMeshes() {
+  if (hookMesh) return;
+  const scene = getScene();
+  
+  const hookGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.6, 4);
+  const hookMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa });
+  hookMesh = new THREE.Mesh(hookGeo, hookMat);
+  hookMesh.visible = false;
+  scene.add(hookMesh);
+  
+  const ropeGeo = new THREE.BufferGeometry();
+  ropeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  const ropeMat = new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 3 });
+  ropeMesh = new THREE.Line(ropeGeo, ropeMat);
+  ropeMesh.visible = false;
+  scene.add(ropeMesh);
+}
+
+function updateRope() {
+  if (!ropeMesh || !ropeMesh.visible) return;
+  const positions = ropeMesh.geometry.attributes.position.array;
+  
+  const start = getCamera().position.clone();
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(getCamera().quaternion);
+  start.addScaledVector(forward, 0.4);
+  start.y -= 0.3;
+  
+  positions[0] = start.x;
+  positions[1] = start.y;
+  positions[2] = start.z;
+  
+  positions[3] = hookMesh.position.x;
+  positions[4] = hookMesh.position.y;
+  positions[5] = hookMesh.position.z;
+  
+  ropeMesh.geometry.attributes.position.needsUpdate = true;
+}
 
 // Manual camera rotation for mobile.
 // Look joystick returns accumulated pixel-delta per frame. Convert to radians
@@ -65,6 +117,12 @@ function onKeyDown(e) {
     case 'KeyA': moveLeft = true; break;
     case 'KeyD': moveRight = true; break;
     case 'ShiftLeft': case 'ShiftRight': isSprinting = true; break;
+    case 'Space': 
+      if (canJump) {
+        jumpVelocity = JUMP_FORCE;
+        canJump = false;
+      }
+      break;
   }
 }
 
@@ -78,10 +136,71 @@ function onKeyUp(e) {
   }
 }
 
+export function fireGrappleHook() {
+  if (grappleState !== 'idle' || gameState.state !== 'playing') return false;
+  
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), getCamera());
+  const intersects = raycaster.intersectObjects(getScene().children, true);
+  const valid = intersects.find(i => i.point.y > 0.5 && i.distance < 80);
+  
+  if (valid) {
+    grappleTarget.copy(valid.point);
+    // Add a small offset above the surface so the player lands ON TOP of objects
+    grappleTarget.y += 1.0;
+    
+    createHookMeshes();
+    hookMesh.position.copy(getCamera().position);
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(getCamera().quaternion);
+    hookMesh.position.addScaledVector(forward, 0.5);
+    hookMesh.position.y -= 0.2;
+    hookMesh.lookAt(grappleTarget);
+    hookMesh.rotateX(Math.PI / 2);
+    
+    hookMesh.visible = true;
+    ropeMesh.visible = true;
+    
+    grappleState = 'shooting';
+    return true; // Successfully fired
+  }
+  return false;
+}
+
 export function updatePlayer(delta) {
   // On desktop, require pointer lock. On mobile, always active while playing.
   if (!_mobile && (!controls || !controls.isLocked)) return;
   if (gameState.state !== 'playing') return;
+
+  if (grappleState === 'shooting') {
+    const hookSpeed = 200 * delta;
+    const dir = new THREE.Vector3().subVectors(grappleTarget, hookMesh.position);
+    const dist = dir.length();
+    
+    if (dist < hookSpeed) {
+      hookMesh.position.copy(grappleTarget);
+      grappleState = 'pulling';
+      jumpVelocity = 0;
+    } else {
+      hookMesh.position.addScaledVector(dir.normalize(), hookSpeed);
+    }
+    updateRope();
+  } else if (grappleState === 'pulling') {
+    const pos = getPlayerPosition();
+    const dir = new THREE.Vector3().subVectors(grappleTarget, pos);
+    const dist = dir.length();
+    
+    if (dist < 1.5) {
+       grappleState = 'idle';
+       jumpVelocity = 3;
+       if (hookMesh) hookMesh.visible = false;
+       if (ropeMesh) ropeMesh.visible = false;
+    } else {
+       dir.normalize();
+       const GRAPPLE_SPEED = 70;
+       pos.addScaledVector(dir, GRAPPLE_SPEED * delta);
+       updateRope();
+       return; 
+    }
+  }
 
   velocity.set(0, 0, 0);
   direction.set(0, 0, 0);
@@ -133,6 +252,26 @@ export function updatePlayer(delta) {
     resolveCollision(pos, 0.5);
     pos.x = Math.max(-BOUNDARY, Math.min(BOUNDARY, pos.x));
     pos.z = Math.max(-BOUNDARY, Math.min(BOUNDARY, pos.z));
+  }
+
+  // Handle jumping and gravity every frame
+  const pos = getPlayerPosition();
+  jumpVelocity -= GRAVITY * delta;
+  pos.y += jumpVelocity * delta;
+
+  // 3D Floor collision
+  const floorY = getGroundHeight(pos.x, pos.z, 0.2);
+  let targetFloorY = PLAYER_HEIGHT; // Default ground (1.7)
+  
+  // If we are falling onto an obstacle or standing on it
+  if (pos.y - 1.7 >= floorY - 0.6) {
+    targetFloorY = floorY + PLAYER_HEIGHT;
+  }
+
+  if (pos.y <= targetFloorY) {
+    pos.y = targetFloorY;
+    jumpVelocity = 0;
+    canJump = true;
   }
 }
 
