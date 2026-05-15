@@ -10,9 +10,11 @@ let moveBackward = false;
 let moveLeft = false;
 let moveRight = false;
 let isSprinting = false;
+let gamepadSprintActive = false;
 
-// Mobile input state (set externally by game.js)
+// Input state (set externally by game.js)
 let mobileInput = null;
+let gamepadInput = null;
 
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
@@ -112,9 +114,12 @@ export function initPlayer() {
   return controls;
 }
 
-// ── Set mobile input reference ──
 export function setMobileInput(mi) {
   mobileInput = mi;
+}
+
+export function setGamepadInput(gi) {
+  gamepadInput = gi;
 }
 
 function onKeyDown(e) {
@@ -181,8 +186,9 @@ export function fireGrappleHook() {
 }
 
 export function updatePlayer(delta) {
-  // On desktop, require pointer lock. On mobile, always active while playing.
-  if (!_mobile && (!controls || !controls.isLocked)) return;
+  // On desktop, require pointer lock. On mobile or gamepad, active while playing.
+  const hasGamepad = gamepadInput && gamepadInput.gamepadIndex !== -1;
+  if (!_mobile && !hasGamepad && (!controls || !controls.isLocked)) return;
   if (gameState.state !== 'playing') return;
 
   if (grappleState === 'shooting') {
@@ -257,6 +263,36 @@ export function updatePlayer(delta) {
     }
 
     if (mobileInput.consumeJump() && canJump) {
+      jumpVelocity = JUMP_FORCE;
+      canJump = false;
+    }
+  } else if (gamepadInput && gamepadInput.gamepadIndex !== -1) {
+    // ── Gamepad input ──
+    const move = gamepadInput.getMovement();
+    direction.x = move.x;
+    direction.z = move.z;
+
+    if (gamepadInput.consumeSprint()) {
+      gamepadSprintActive = !gamepadSprintActive;
+    }
+
+    // Cancel sprint if not moving forward significantly
+    if (move.z > -0.5) {
+      gamepadSprintActive = false;
+    }
+
+    sprinting = gamepadSprintActive;
+
+    const look = gamepadInput.getLookDelta(delta);
+    if (look.x !== 0 || look.y !== 0) {
+      euler.setFromQuaternion(getCamera().quaternion, 'YXZ');
+      euler.y -= look.x * MOBILE_YAW_SENSITIVITY * 10; // sensitivity boost for sticks
+      euler.x -= look.y * MOBILE_PITCH_SENSITIVITY * 10;
+      euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
+      getCamera().quaternion.setFromEuler(euler);
+    }
+
+    if (gamepadInput.consumeJump() && canJump) {
       jumpVelocity = JUMP_FORCE;
       canJump = false;
     }

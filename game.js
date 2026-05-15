@@ -1,17 +1,19 @@
 import { gameState } from './src/game-state.js';
 import { initScene, render, updateAtmosphere } from './src/scene.js';
-import { initPlayer, updatePlayer, lock, isOnMobile, setMobileInput } from './src/player.js';
-import { initWeapon, updateWeapon, resetWeapon, fireOnce, startReloadMobile, switchWeaponMobile, getOwnedWeapons, getCurrentWeapon, setAimAssist } from './src/weapon.js';
+import { initPlayer, updatePlayer, lock, isOnMobile, setMobileInput, setGamepadInput as setPlayerGamepadInput } from './src/player.js';
+import { initWeapon, updateWeapon, resetWeapon, fireOnce, startReloadMobile, switchWeaponMobile, getOwnedWeapons, getCurrentWeapon, setAimAssist, setGamepadInput as setWeaponGamepadInput } from './src/weapon.js';
 import { spawnInitialZombies, updateZombies, clearAllZombies } from './src/zombie.js';
 import { initHUD, updateHUD, showMenu, hideMenu, showGameOver, showBlood, updateBlood } from './src/hud.js';
 import { updatePowerups, clearAllPowerups } from './src/powerups.js';
 import { initAmmoStation, updateAmmoStation, tryBuyAmmo, isNearStation, getStationCost } from './src/ammostation.js';
 import { initMysteryBox, updateMysteryBox, tryActivateBox, isNearMysteryBox, getBoxCost } from './src/mysterybox.js';
 import { MobileControls, isMobile, lockLandscape } from './src/mobile.js';
+import { GamepadControls } from './src/gamepad.js';
 
 let lastTime = performance.now();
 let lastScore = 0;
 let mobileControls = null;
+let gamepadControls = null;
 
 function onStartButton() {
   const btn = document.getElementById('start-button');
@@ -57,6 +59,12 @@ function initMobile() {
       tryActivateBox();
     }
   });
+}
+
+function initGamepad() {
+  gamepadControls = new GamepadControls();
+  setPlayerGamepadInput(gamepadControls);
+  setWeaponGamepadInput(gamepadControls);
 }
 
 function startGame() {
@@ -127,6 +135,35 @@ function updateMobileInput() {
   mobileControls.setInteractLabel(label);
 }
 
+function updateGamepadInput() {
+  if (!gamepadControls) return;
+
+  gamepadControls.update();
+
+  if (gamepadControls.isFiring()) {
+    fireOnce();
+  }
+
+  if (gamepadControls.consumeInteract()) {
+    if (!tryBuyAmmo()) {
+      tryActivateBox();
+    }
+  }
+
+  if (gamepadControls.consumeGrapple()) {
+    // If they have grapplegun, switch to it and fire. 
+    // Or just call the function if it's currently held.
+    if (getCurrentWeapon() === 'grapplegun') {
+      fireOnce();
+    } else {
+      const owned = getOwnedWeapons();
+      if (owned.grapplegun) {
+        switchWeaponMobile('grapplegun');
+      }
+    }
+  }
+}
+
 function gameLoop() {
   requestAnimationFrame(gameLoop);
 
@@ -141,6 +178,7 @@ function gameLoop() {
     gameState.tick(delta);
     updatePlayer(delta);
     updateMobileInput();
+    updateGamepadInput();
     updateZombies(delta, () => showBlood());
     updatePowerups(delta);
     updateAmmoStation(delta);
@@ -166,6 +204,7 @@ initAmmoStation();
 initMysteryBox();
 initHUD();
 initMobile();
+initGamepad();
 onStartButton();
 onRestartButton();
 

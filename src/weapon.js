@@ -132,6 +132,7 @@ const WEAPON_DEFS = {
     headDamage: 70,
     pellets: 1,
     spread: 0.04,
+    automatic: true,
     spritesheet: SPRITESHEET_CONFIG.smg,
     unlockRound: 5,
     unlockCost: 2000,
@@ -231,6 +232,8 @@ let animState = 'idle';       // 'idle' | 'fire' | 'reload'
 let animFrame = 0;            // current frame index
 let animTimer = 0;            // accumulator for frame timing
 let animLoopDone = false;     // true when fire/reload anim completed
+let isMouseDown = false;
+let gamepadInput = null;
 
 // ═══════════════════════════════════════════════════════════════
 // PUBLIC API
@@ -253,6 +256,10 @@ export function getAmmoState() {
 export function getCurrentWeapon() { return currentWeapon; }
 export function getOwnedWeapons() { return { ...ownedWeapons }; }
 export function getWeaponDefs() { return WEAPON_DEFS; }
+
+export function setGamepadInput(gi) {
+  gamepadInput = gi;
+}
 
 export function canBuyWeapon(type) {
   const def = WEAPON_DEFS[type];
@@ -291,6 +298,7 @@ function switchWeapon(type) {
   animState = 'idle';
   animFrame = 0;
   animTimer = 0;
+  isMouseDown = false;
   updateViewmodelVisibility();
 }
 
@@ -403,7 +411,9 @@ function createMuzzleFlash() {
 // INIT / RESET
 // ═══════════════════════════════════════════════════════════════
 export function initWeapon() {
-  document.addEventListener('click', onClick);
+  document.addEventListener('mousedown', onMouseDown);
+  document.addEventListener('mouseup', onMouseUp);
+  document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) isMouseDown = false; });
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('wheel', onWheel, { passive: false });
 
@@ -579,6 +589,27 @@ export function updateWeapon(delta) {
       );
     }
   }
+
+  // ── Automatic fire ──
+  const isGamepadFiring = gamepadInput && gamepadInput.gamepadIndex !== -1 && gamepadInput.isFiring();
+  if ((isMouseDown || isGamepadFiring) && def.automatic && !isReloading && gameState.state === 'playing') {
+    // Only require pointer lock for mouse on desktop. Gamepad bypasses it.
+    if (isGamepadFiring || document.pointerLockElement) {
+      fireOnce();
+    }
+  }
+
+  // ── Gamepad actions ──
+  if (gamepadInput && gamepadInput.gamepadIndex !== -1) {
+    if (gamepadInput.consumeReload()) startReload();
+    if (gamepadInput.consumeSwitch()) {
+      const order = ['pistol', 'shotgun', 'smg', 'aliengun', 'raygun', 'katana', 'grapplegun'];
+      const owned = order.filter(w => ownedWeapons[w]);
+      let idx = owned.indexOf(currentWeapon);
+      idx = (idx + 1) % owned.length;
+      switchWeapon(owned[idx]);
+    }
+  }
 }
 
 function updateAnimation(delta, cfg, texture) {
@@ -629,23 +660,21 @@ function updateAnimation(delta, cfg, texture) {
 // ═══════════════════════════════════════════════════════════════
 // SHOOTING
 // ═══════════════════════════════════════════════════════════════
-function onClick() {
-  if (gameState.state !== 'playing') return;
-  if (!document.pointerLockElement) return;
-  if (isReloading) return;
-
-  const def = WEAPON_DEFS[currentWeapon];
-  const ammo = ammoState[currentWeapon];
-
-  if (!def.melee && ammo.current <= 0) {
-    startReload();
-    return;
+function onMouseDown(e) {
+  if (e.button !== 0) return;
+  const isPlaying = gameState.state === 'playing';
+  const hasGamepad = gamepadInput && gamepadInput.gamepadIndex !== -1;
+  if (!isPlaying || (!hasGamepad && !document.pointerLockElement)) return;
+  isMouseDown = true;
+  // If not automatic, fire once on press. If automatic, updateWeapon handles it.
+  if (!WEAPON_DEFS[currentWeapon].automatic) {
+    fireOnce();
   }
+}
 
-  const now = performance.now() / 1000;
-  if (now - lastShotTime < def.cooldown) return;
-  lastShotTime = now;
-  shoot();
+function onMouseUp(e) {
+  if (e.button !== 0) return;
+  isMouseDown = false;
 }
 
 // Mobile-friendly fire (no pointerLock check)
