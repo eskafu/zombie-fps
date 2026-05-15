@@ -182,7 +182,7 @@ if (isMobile()) {
     instructions.innerHTML = `
       <p>🎮 Joystick esquerdo - Mover</p>
       <p>👆 Joystick direito - Olhar</p>
-      <p>🔫 Botão vermelho - Atirar</p>
+      <p>🔫 Botão vermelho - Atirar &nbsp;|&nbsp; ⬆ - Saltar</p>
       <p>↻ - Recarregar &nbsp;|&nbsp; E - Interagir</p>
       <p>⚔️ Botões em baixo - Trocar arma</p>
     `;

@@ -255,6 +255,11 @@ export function updatePlayer(delta) {
       euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
       getCamera().quaternion.setFromEuler(euler);
     }
+
+    if (mobileInput.consumeJump() && canJump) {
+      jumpVelocity = JUMP_FORCE;
+      canJump = false;
+    }
   } else {
     // ── Desktop (keyboard) ──
     if (moveForward)  direction.z -= 1;

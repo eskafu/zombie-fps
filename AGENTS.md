@@ -15,19 +15,24 @@ Static-client Zombie FPS built with Three.js. Single-player browser game set in 
 - `index.html` → `game.js`
 
 ## Core Systems
-- **Vertical Movement**: Functional Grappling Hook weapon (`fireGrappleHook`) and gravity-based jumping.
-- **3D Physics**: Collision system supports walking and jumping on obstacles (cars, buses, roofs) via `maxY` property in `barrierColliders`.
-- **Mystery Box**: Random weapon generator (1200 points). Includes Grappling Hook, Raygun, Alien Gun, etc.
-- **Weapons**: Hand-drawn 2D spritesheets with first-person perspective and animations.
+- **Vertical Movement**: Functional Grappling Hook weapon (`fireGrappleHook`). Fixed raycaster and viewmodel clipping bugs. Mapped to `0` key and mouse wheel.
+- **3D Physics**: Advanced collision system. Buildings have `maxY` set to roof height with additional cone blockers to prevent clipping. 
+- **Mystery Box**: Random weapon generator (1200 points). Includes Grappling Hook (3 charges, auto-discard), Raygun, etc.
+- **Zombie AI**: 
+  *   **Spawning**: Smart spawning from house doors and a central stone well landmark.
+  *   **Navigation**: Anti-stuck system with 45° rotational evasion.
+  *   **Crowd Control**: Separation forces prevent zombies from stacking/overlapping.
+  *   **Combat**: Height-aware damage system prevents zombies hitting players through roofs.
+- **Controls**: Weapon switching via slots 1-6, `0` for grapple, and mouse wheel scroll.
 
 ## Key Files
 - `index.html` — HTML shell, menus, importmap
 - `src/game.js` — Main game loop and orchestration
 - `src/player.js` — Player movement, jumping, and grappling logic
-- `src/scene.js` — World generation, 1960s props, and 3D collision data
-- `src/weapon.js` — Weapon definitions, ammo states, and viewmodel rendering
+- `src/scene.js` — World generation, stone well landmark, and collision data
+- `src/weapon.js` — Weapon definitions, mouse wheel switching, and viewmodel logic
+- `src/zombie.js` — Zombie AI, smart spawning, and separation logic
 - `src/mysterybox.js` — Mystery Box logic and weapon roll system
-- `assets/armas/` — 2D weapon spritesheets
 
 ## Icon Libraries (npm)
 - `lucide`, `phosphor-icons`, `remixicon`, `@hugeicons/core-free-icons`

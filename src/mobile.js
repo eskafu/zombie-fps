@@ -226,6 +226,7 @@ export class MobileControls {
     this.lookJoystick = null;
     this.firePressed = false;
     this.reloadPressed = false;
+    this.jumpPressed = false;
     this.interactPressed = false;
     this._lastSlotsKey = '';  // dirty-check signature for weapon slots
     this._lastInteractLabel = '';
@@ -251,6 +252,9 @@ export class MobileControls {
 
       <!-- Reload button (above fire) -->
       <button id="btn-reload" class="mobile-btn action-btn">↻</button>
+
+      <!-- Jump button (above fire area) -->
+      <button id="btn-jump" class="mobile-btn action-btn">⬆</button>
 
       <!-- Interact button (hidden unless near station/box) -->
       <button id="btn-interact" class="mobile-btn action-btn" style="display:none">E</button>
@@ -359,6 +363,20 @@ export class MobileControls {
         right: calc(6% + ${FIRE_SIZE}px + 14px);
         bottom: calc(5% + ${FIRE_SIZE/2}px - 26px);
       }
+      #btn-jump {
+        right: 6%;
+        bottom: calc(5% + ${FIRE_SIZE}px + 16px);
+        width: ${FIRE_SIZE}px;
+        height: 48px;
+        border-radius: 24px;
+        background: rgba(255,255,255,0.15);
+        transition: transform 0.08s, background 0.08s;
+      }
+      #btn-jump:active,
+      #btn-jump.jump-pressed {
+        background: rgba(255,255,255,0.3);
+        transform: scale(0.95);
+      }
       #btn-interact {
         right: calc(6% + ${FIRE_SIZE}px + 74px);
         bottom: calc(5% + ${FIRE_SIZE/2}px - 26px);
@@ -421,6 +439,11 @@ export class MobileControls {
     reloadBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.reloadPressed = true; });
     reloadBtn.addEventListener('touchend',   () => { this.reloadPressed = false; });
 
+    const jumpBtn = document.getElementById('btn-jump');
+    jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.jumpPressed = true; jumpBtn.classList.add('jump-pressed'); });
+    jumpBtn.addEventListener('touchend',   () => { this.jumpPressed = false; jumpBtn.classList.remove('jump-pressed'); });
+    jumpBtn.addEventListener('touchcancel',() => { this.jumpPressed = false; jumpBtn.classList.remove('jump-pressed'); });
+
     const interactBtn = document.getElementById('btn-interact');
     interactBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.interactPressed = true; });
     interactBtn.addEventListener('touchend',   () => { this.interactPressed = false; });
@@ -454,6 +477,7 @@ export class MobileControls {
 
   isFiring() { return this.firePressed; }
   consumeReload()  { const v = this.reloadPressed;   this.reloadPressed   = false; return v; }
+  consumeJump()    { const v = this.jumpPressed;     this.jumpPressed     = false; return v; }
   consumeInteract(){ const v = this.interactPressed; this.interactPressed = false; return v; }
 
   // ── Weapon slots (dirty-checked so we don't rebuild DOM every frame) ──
