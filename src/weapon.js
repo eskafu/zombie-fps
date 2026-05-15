@@ -4,7 +4,7 @@ import { checkShot, damageZombie, getZombies } from './zombie.js';
 import { playShot, playReloadSound } from './audio.js';
 import { gameState } from './game-state.js';
 import { showHitMarker } from './hud.js';
-import { fireGrappleHook } from './player.js';
+import { fireGrappleHook, isGrappleActive } from './player.js';
 
 // ═══════════════════════════════════════════════════════════════
 // SPRITESHEET CONFIG — grelha 3 linhas × 2 colunas (6 frames)
@@ -198,9 +198,6 @@ const VIEWMODEL_REST = new THREE.Vector3(0.28, -0.28, -0.55);
 
 // Aim assist (touch input only). Snaps fire direction toward nearest zombie
 // inside a small cone around forward. Disabled by default for desktop.
-let aimAssistEnabled = false;
-const AIM_ASSIST_CONE = Math.cos(THREE.MathUtils.degToRad(7));  // ~7° half-angle
-const AIM_ASSIST_RANGE = 35;
 const AIM_ASSIST_BLEND = 0.55;  // 0 = no help, 1 = full snap
 
 export function setAimAssist(enabled) { aimAssistEnabled = !!enabled; }
@@ -670,7 +667,16 @@ function shoot() {
     const success = fireGrappleHook();
     if (success) {
       ammo.current--;
-      setTimeout(checkDiscard, 1500); // Wait for hook to finish before discarding
+      
+      // Intelligent discard: wait for grapple to finish
+      const waitAndDiscard = () => {
+        if (isGrappleActive()) {
+          setTimeout(waitAndDiscard, 100);
+        } else {
+          checkDiscard();
+        }
+      };
+      setTimeout(waitAndDiscard, 500);
     }
     return;
   }

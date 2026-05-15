@@ -30,7 +30,13 @@ const JUMP_FORCE = 7;
 // Grappling hook
 let grappleState = 'idle'; // 'idle', 'shooting', 'pulling'
 const grappleTarget = new THREE.Vector3();
-const raycaster = new THREE.Raycaster();
+let grappleStartTime = 0;
+let lastGrappleDist = 0;
+const GRAPPLE_TIMEOUT = 2500; // ms
+
+export function isGrappleActive() {
+  return grappleState !== 'idle';
+}
 let hookMesh = null;
 let ropeMesh = null;
 
@@ -145,8 +151,15 @@ export function fireGrappleHook() {
   
   if (valid) {
     grappleTarget.copy(valid.point);
-    // Add a small offset above the surface so the player lands ON TOP of objects
-    grappleTarget.y += 1.0;
+    
+    // Check surface normal - only add Y offset if hitting a top surface (roof/floor)
+    const normal = valid.face ? valid.face.normal.clone().applyQuaternion(valid.object.quaternion) : new THREE.Vector3(0,1,0);
+    if (normal.y > 0.5) {
+      grappleTarget.y += 0.8; // Small offset to land ON the surface
+    }
+    
+    grappleStartTime = performance.now();
+    lastGrappleDist = 9999;
     
     createHookMeshes();
     hookMesh.position.copy(getCamera().position);
@@ -175,6 +188,14 @@ export function updatePlayer(delta) {
     const dir = new THREE.Vector3().subVectors(grappleTarget, hookMesh.position);
     const dist = dir.length();
     
+    // Safety timeout
+    if (performance.now() - grappleStartTime > GRAPPLE_TIMEOUT) {
+      grappleState = 'idle';
+      if (hookMesh) hookMesh.visible = false;
+      if (ropeMesh) ropeMesh.visible = false;
+      return;
+    }
+
     if (dist < hookSpeed) {
       hookMesh.position.copy(grappleTarget);
       grappleState = 'pulling';
@@ -188,7 +209,12 @@ export function updatePlayer(delta) {
     const dir = new THREE.Vector3().subVectors(grappleTarget, pos);
     const dist = dir.length();
     
-    if (dist < 1.5) {
+    // Stuck detection: if we aren't moving closer to target (blocked by wall)
+    const stuck = dist > lastGrappleDist - 0.01;
+    lastGrappleDist = dist;
+
+    // Safety timeout or reached target or stuck
+    if (dist < 2.0 || stuck || (performance.now() - grappleStartTime > GRAPPLE_TIMEOUT)) {
        grappleState = 'idle';
        jumpVelocity = 3;
        if (hookMesh) hookMesh.visible = false;
@@ -196,7 +222,11 @@ export function updatePlayer(delta) {
     } else {
        dir.normalize();
        const GRAPPLE_SPEED = 70;
+       
+       // Move and resolve collisions so we don't clip through walls
        pos.addScaledVector(dir, GRAPPLE_SPEED * delta);
+       resolveCollision(pos, 0.6);
+       
        updateRope();
        return; 
     }
