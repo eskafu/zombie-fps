@@ -181,19 +181,22 @@ function updateGamepadInput() {
 
 // Pause listener
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'Escape' || e.code === 'KeyP') {
-    if (gameState.state === 'playing' || gameState.state === 'paused') {
-      const changed = gameState.togglePause();
-      if (changed) {
-        if (gameState.state === 'paused') {
-          showPauseMenu();
-          if (!isOnMobile()) document.exitPointerLock();
-        } else {
-          hidePauseMenu();
-          if (!isOnMobile()) lock();
-        }
-      }
+  if (e.code === 'KeyP') {
+    if (gameState.state === 'playing') {
+      document.exitPointerLock(); // This will trigger the pointerlockchange listener below
+    } else if (gameState.state === 'paused') {
+      gameState.state = 'playing';
+      hidePauseMenu();
+      if (!isOnMobile()) lock();
     }
+  }
+  // Escape is handled by the browser's pointerlock exit
+});
+
+document.addEventListener('pointerlockchange', () => {
+  if (!document.pointerLockElement && gameState.state === 'playing' && !isOnMobile()) {
+    gameState.state = 'paused';
+    showPauseMenu();
   }
 });
 

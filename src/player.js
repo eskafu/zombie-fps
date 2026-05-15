@@ -3,6 +3,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { getCamera, resolveCollision, getGroundHeight, getScene } from './scene.js';
 import { gameState } from './game-state.js';
 import { isMobile } from './mobile.js';
+import { hidePauseMenu } from './hud.js';
 
 let controls;
 let moveForward = false;
@@ -99,7 +100,10 @@ export function initPlayer() {
     controls = new PointerLockControls(camera, document.body);
 
     controls.addEventListener('lock', () => {
-      if (gameState.state !== 'playing') {
+      if (gameState.state === 'paused') {
+        gameState.state = 'playing';
+        hidePauseMenu();
+      } else if (gameState.state !== 'playing') {
         controls.unlock();
       }
     });

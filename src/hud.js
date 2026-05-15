@@ -1,4 +1,4 @@
-import { initPlayer, updatePlayer, updatePlayerSettings } from './player.js';
+import { initPlayer, updatePlayer, updatePlayerSettings, lock, isOnMobile } from './player.js';
 import { gameState } from './game-state.js';
 import { getActivePowerupLabels } from './powerups.js';
 import { getAmmoState, getCurrentWeapon, getOwnedWeapons } from './weapon.js';
@@ -107,8 +107,9 @@ export function initHUD() {
     elements.settingsOverlay.style.display = 'none';
   };
   if (elements.resumeButton) elements.resumeButton.onclick = () => {
-    gameState.togglePause();
+    gameState.state = 'playing';
     hidePauseMenu();
+    if (!isOnMobile()) lock();
   };
   if (elements.quitButton) elements.quitButton.onclick = () => {
     window.location.reload(); // Simplest way to return to menu and reset everything
@@ -368,6 +369,8 @@ export function showMenu(lastScore) {
   if (elements.menu) elements.menu.style.display = 'flex';
   if (elements.hud) elements.hud.style.display = 'none';
   if (elements.gameOver) elements.gameOver.style.display = 'none';
+  if (elements.pauseMenu) elements.pauseMenu.style.display = 'none';
+  if (elements.settingsOverlay) elements.settingsOverlay.style.display = 'none';
   document.body.classList.remove('game-active');
   if (elements.crosshair) elements.crosshair.style.display = 'none';
   if (elements.weaponSlots) elements.weaponSlots.style.display = 'none';
@@ -376,13 +379,15 @@ export function showMenu(lastScore) {
     elements.lastScore.textContent = Number(lastScore).toLocaleString();
   }
   loadLeaderboard('menu-leaderboard-list', 'menu-leaderboard-loading');
-  document.exitPointerLock();
+  if (document.pointerLockElement) document.exitPointerLock();
 }
 
 export function hideMenu() {
   if (elements.menu) elements.menu.style.display = 'none';
   if (elements.hud) elements.hud.style.display = 'block';
   if (elements.gameOver) elements.gameOver.style.display = 'none';
+  if (elements.pauseMenu) elements.pauseMenu.style.display = 'none';
+  if (elements.settingsOverlay) elements.settingsOverlay.style.display = 'none';
   document.body.classList.add('game-active');
   if (elements.crosshair) {
     elements.crosshair.style.display = 'block';
