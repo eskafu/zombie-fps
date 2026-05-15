@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { getScene } from './scene.js';
 import { getPlayerPosition } from './player.js';
 import { gameState } from './game-state.js';
-import { refillAmmoSilent, lowerWeaponBriefly } from './weapon.js';
+import { getAmmoState, refillAmmoSilent, lowerWeaponBriefly } from './weapon.js';
 import { createCelMaterial, applyOutlineToMesh } from './celshade.js';
 
 const STATION_POS = new THREE.Vector3(8, 0, -12);
