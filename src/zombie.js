@@ -305,8 +305,8 @@ function spawnSingle(scene, playerPos) {
   let speed = gameState.getZombieSpeed();
   
   if (isDogRound) {
-    hp *= 0.5;
-    speed *= 1.6;
+    hp *= 0.7;
+    speed *= 2.2;
   } else if (isElite) {
     hp *= 2.5;
     speed *= 1.3;
@@ -330,6 +330,11 @@ function spawnSingle(scene, playerPos) {
     evadeTimer: 0,
     evadeAngle: 0
   };
+
+  if (isDogRound) {
+    mesh.scale.setScalar(1.4);
+  }
+
   zombies.push(zombie);
   gameState.onZombieSpawned();
   return zombie;
