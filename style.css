@@ -387,9 +387,15 @@ body.mobile .hud-value {
     font-size: 1.2rem;
 }
 body.mobile #ammo-display {
-    bottom: 120px;
-    font-size: 1.4rem;
+    bottom: 1.5%;
+    right: 4%;
+    width: 85px;
+    text-align: center;
+    font-size: 0.9rem;
+    text-shadow: 1px 1px 3px #000;
 }
+body.mobile .ammo-weapon { font-size: 0.65rem; display: block; margin-bottom: -2px; opacity: 0.8; }
+body.mobile .ammo-res, body.mobile .ammo-sep { font-size: 0.75rem; }
 body.mobile #buy-prompt {
     bottom: 30%;
     font-size: 0.8rem;

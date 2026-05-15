@@ -316,7 +316,7 @@ export class MobileControls {
       .fire-btn {
         width: ${FIRE_SIZE}px; height: ${FIRE_SIZE}px;
         border-radius: 50%;
-        right: 6%;
+        right: 4%;
         bottom: 5%;
         background: rgba(200,0,0,0.5);
         border: 2px solid rgba(255,60,60,0.6);
@@ -364,7 +364,7 @@ export class MobileControls {
         bottom: calc(5% + ${FIRE_SIZE/2}px - 26px);
       }
       #btn-jump {
-        right: 6%;
+        right: 2.5%;
         bottom: calc(5% + ${FIRE_SIZE}px + 16px);
         width: ${FIRE_SIZE}px;
         height: 48px;
