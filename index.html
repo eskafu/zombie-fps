@@ -18,6 +18,7 @@
         <p id="menu-max-round">Melhor Round: <span id="best-round">1</span></p>
         <p id="menu-max-kills">Melhor Score: <span id="best-kills">0</span> kills</p>
         <button id="start-button">INICIAR JOGO</button>
+        <button id="settings-button">DEFINIÇÕES</button>
         <div id="menu-leaderboard">
             <h3>🏆 TOP 10</h3>
             <ol id="menu-leaderboard-list"></ol>
@@ -26,9 +27,37 @@
         <div class="instructions">
             <p>WASD - Mover &nbsp;|&nbsp; Mouse - Olhar &nbsp;|&nbsp; Clique - Atirar</p>
             <p>Shift - Sprint &nbsp;|&nbsp; R - Recarregar &nbsp;|&nbsp; E - Comprar</p>
-            <p>1 - Pistol &nbsp;|&nbsp; 6 - Katana &nbsp;|&nbsp; 2-5 - Armas especiais</p>
-            <p>E - Comprar munição &nbsp;|&nbsp; Mystery Box (ronda 3+)</p>
+            <p>ESC / P - Pausa &nbsp;|&nbsp; 1-6 - Armas</p>
         </div>
+    </div>
+
+    <!-- Menu de Pausa -->
+    <div id="pause-menu" style="display:none;">
+        <h1>PAUSA</h1>
+        <div class="settings-group">
+            <label>Sensibilidade Rato: <span id="val-mouse">1.0</span></label>
+            <input type="range" id="sens-mouse" min="0.1" max="5.0" step="0.1" value="1.0">
+        </div>
+        <div class="settings-group">
+            <label>Sensibilidade Comando: <span id="val-pad">1.5</span></label>
+            <input type="range" id="sens-pad" min="0.1" max="5.0" step="0.1" value="1.5">
+        </div>
+        <button id="resume-button">CONTINUAR</button>
+        <button id="quit-button">SAIR PARA O MENU</button>
+    </div>
+
+    <!-- Overlay de Definições (Menu Inicial) -->
+    <div id="settings-overlay" style="display:none;">
+        <h1>DEFINIÇÕES</h1>
+        <div class="settings-group">
+            <label>Sensibilidade Rato: <span id="val-mouse-start">1.0</span></label>
+            <input type="range" id="sens-mouse-start" min="0.1" max="5.0" step="0.1" value="1.0">
+        </div>
+        <div class="settings-group">
+            <label>Sensibilidade Comando: <span id="val-pad-start">1.5</span></label>
+            <input type="range" id="sens-pad-start" min="0.1" max="5.0" step="0.1" value="1.5">
+        </div>
+        <button id="settings-back-button">VOLTAR</button>
     </div>
 
     <!-- HUD -->

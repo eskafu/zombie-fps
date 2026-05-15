@@ -1,3 +1,4 @@
+import { initPlayer, updatePlayer, updatePlayerSettings } from './player.js';
 import { gameState } from './game-state.js';
 import { getActivePowerupLabels } from './powerups.js';
 import { getAmmoState, getCurrentWeapon, getOwnedWeapons } from './weapon.js';
@@ -14,6 +15,13 @@ const BLOOD_DURATION = 0.5;
 let hitMarkerTimer = 0;
 const HIT_MARKER_DURATION = 0.12;
 let roundBannerShown = -1;
+
+export function showPauseMenu() {
+  if (elements.pauseMenu) elements.pauseMenu.style.display = 'flex';
+}
+export function hidePauseMenu() {
+  if (elements.pauseMenu) elements.pauseMenu.style.display = 'none';
+}
 
 // Crosshair spread
 let crosshairSpread = 0;
@@ -45,6 +53,66 @@ export function initHUD() {
   elements.reloadBar    = document.getElementById('reload-bar');
   elements.buyPrompt    = document.getElementById('buy-prompt');
   elements.perksList    = document.getElementById('perks-list');
+
+  // New Settings & Pause Elements
+  elements.settingsButton = document.getElementById('settings-button');
+  elements.settingsOverlay = document.getElementById('settings-overlay');
+  elements.settingsBackButton = document.getElementById('settings-back-button');
+  elements.pauseMenu = document.getElementById('pause-menu');
+  elements.resumeButton = document.getElementById('resume-button');
+  elements.quitButton = document.getElementById('quit-button');
+
+  // Sliders
+  const sensMouse = document.getElementById('sens-mouse');
+  const sensPad = document.getElementById('sens-pad');
+  const sensMouseStart = document.getElementById('sens-mouse-start');
+  const sensPadStart = document.getElementById('sens-pad-start');
+  const valMouse = document.getElementById('val-mouse');
+  const valPad = document.getElementById('val-pad');
+  const valMouseStart = document.getElementById('val-mouse-start');
+  const valPadStart = document.getElementById('val-pad-start');
+
+  // Set initial values
+  const updateSliderDisplays = () => {
+    const m = gameState.mouseSensitivity.toFixed(1);
+    const p = gameState.gamepadSensitivity.toFixed(1);
+    if (sensMouse) sensMouse.value = m;
+    if (sensPad) sensPad.value = p;
+    if (sensMouseStart) sensMouseStart.value = m;
+    if (sensPadStart) sensPadStart.value = p;
+    if (valMouse) valMouse.textContent = m;
+    if (valPad) valPad.textContent = p;
+    if (valMouseStart) valMouseStart.textContent = m;
+    if (valPadStart) valPadStart.textContent = p;
+  };
+  updateSliderDisplays();
+
+  // Slider events
+  const onSensChange = (e) => {
+    const mouse = parseFloat(sensMouse ? sensMouse.value : (sensMouseStart ? sensMouseStart.value : 1.0));
+    const pad = parseFloat(sensPad ? sensPad.value : (sensPadStart ? sensPadStart.value : 1.5));
+    gameState.updateSettings(mouse, pad);
+    updateSliderDisplays();
+    updatePlayerSettings();
+  };
+  [sensMouse, sensPad, sensMouseStart, sensPadStart].forEach(s => {
+    if (s) s.addEventListener('input', onSensChange);
+  });
+
+  // Button events
+  if (elements.settingsButton) elements.settingsButton.onclick = () => {
+    elements.settingsOverlay.style.display = 'flex';
+  };
+  if (elements.settingsBackButton) elements.settingsBackButton.onclick = () => {
+    elements.settingsOverlay.style.display = 'none';
+  };
+  if (elements.resumeButton) elements.resumeButton.onclick = () => {
+    gameState.togglePause();
+    hidePauseMenu();
+  };
+  if (elements.quitButton) elements.quitButton.onclick = () => {
+    window.location.reload(); // Simplest way to return to menu and reset everything
+  };
 
   if (!elements.perksList) {
     elements.perksList = document.createElement('div');

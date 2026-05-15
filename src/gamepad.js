@@ -96,10 +96,15 @@ export class GamepadControls {
     y = Math.sign(y) * Math.pow(Math.abs(y), 2);
 
     // Apply sensitivity (tuned for 60fps base)
+    const sens = gameState.gamepadSensitivity;
     return {
-      x: x * this.lookSensitivity * delta * 60,
-      y: y * this.lookSensitivity * delta * 60
+      x: x * sens * delta * 60,
+      y: y * sens * delta * 60
     };
+  }
+
+  updateSettings() {
+    this.lookSensitivity = gameState.gamepadSensitivity;
   }
 
   isFiring() { return this.buttons.fire; }

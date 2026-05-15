@@ -2,13 +2,17 @@ const POWERUP_DURATION = 30;
 const LIFE_REGEN_DELAY = 5;
 
 export const gameState = {
-  state: 'menu',
+  state: 'menu', // 'menu', 'playing', 'paused', 'game-over'
   round: 1,
   maxRound: parseInt(localStorage.getItem('zm_maxRound') || '1'),
   maxKills: parseInt(localStorage.getItem('zm_maxKills') || '0'),
   points: 500,
   lives: 3,
   kills: 0,
+
+  // Settings
+  mouseSensitivity: parseFloat(localStorage.getItem('zm_mouseSens') || '1.0'),
+  gamepadSensitivity: parseFloat(localStorage.getItem('zm_padSens') || '1.5'),
 
   zombiesInRound: 0,
   zombiesSpawned: 0,
@@ -56,6 +60,24 @@ export const gameState = {
 
   reset() {
     this.state = 'menu';
+  },
+
+  togglePause() {
+    if (this.state === 'playing') {
+      this.state = 'paused';
+      return true;
+    } else if (this.state === 'paused') {
+      this.state = 'playing';
+      return true;
+    }
+    return false;
+  },
+
+  updateSettings(mouse, pad) {
+    this.mouseSensitivity = mouse;
+    this.gamepadSensitivity = pad;
+    localStorage.setItem('zm_mouseSens', mouse);
+    localStorage.setItem('zm_padSens', pad);
   },
 
   _beginRound() {

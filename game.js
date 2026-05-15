@@ -3,7 +3,7 @@ import { initScene, render, updateAtmosphere } from './src/scene.js';
 import { initPlayer, updatePlayer, lock, isOnMobile, setMobileInput, setGamepadInput as setPlayerGamepadInput } from './src/player.js';
 import { initWeapon, updateWeapon, resetWeapon, fireOnce, startReloadMobile, switchWeaponMobile, getOwnedWeapons, getCurrentWeapon, setAimAssist, setGamepadInput as setWeaponGamepadInput } from './src/weapon.js';
 import { spawnInitialZombies, updateZombies, clearAllZombies } from './src/zombie.js';
-import { initHUD, updateHUD, showMenu, hideMenu, showGameOver, showBlood, updateBlood } from './src/hud.js';
+import { initHUD, updateHUD, showMenu, hideMenu, showGameOver, showBlood, updateBlood, showPauseMenu, hidePauseMenu } from './src/hud.js';
 import { updatePowerups, clearAllPowerups } from './src/powerups.js';
 import { initAmmoStation, updateAmmoStation, tryBuyAmmo, isNearStation, getStationCost } from './src/ammostation.js';
 import { initMysteryBox, updateMysteryBox, tryActivateBox, isNearMysteryBox, getBoxCost } from './src/mysterybox.js';
@@ -178,6 +178,24 @@ function updateGamepadInput() {
     }
   }
 }
+
+// Pause listener
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' || e.code === 'KeyP') {
+    if (gameState.state === 'playing' || gameState.state === 'paused') {
+      const changed = gameState.togglePause();
+      if (changed) {
+        if (gameState.state === 'paused') {
+          showPauseMenu();
+          if (!isOnMobile()) document.exitPointerLock();
+        } else {
+          hidePauseMenu();
+          if (!isOnMobile()) lock();
+        }
+      }
+    }
+  }
+});
 
 function gameLoop() {
   requestAnimationFrame(gameLoop);

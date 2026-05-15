@@ -104,6 +104,9 @@ export function initPlayer() {
       }
     });
 
+    // Apply sensitivity
+    controls.pointerSpeed = gameState.mouseSensitivity;
+
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
   }
@@ -112,6 +115,12 @@ export function initPlayer() {
   euler.setFromQuaternion(camera.quaternion, 'YXZ');
 
   return controls;
+}
+
+export function updatePlayerSettings() {
+  if (controls) {
+    controls.pointerSpeed = gameState.mouseSensitivity;
+  }
 }
 
 export function setMobileInput(mi) {
