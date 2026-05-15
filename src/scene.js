@@ -243,6 +243,18 @@ function createVillage() {
     
     if (Math.sqrt(x*x + z*z) < 15) continue; // Plaza in the center
 
+    // Avoid Perk Machines
+    const distJug = Math.sqrt(Math.pow(x - 30, 2) + Math.pow(z - 25, 2));
+    const distSpeed = Math.sqrt(Math.pow(x + 30, 2) + Math.pow(z + 25, 2));
+    const distQuick = Math.sqrt(Math.pow(x + 10, 2) + Math.pow(z - 10, 2));
+    if (distJug < 10 || distSpeed < 10 || distQuick < 10) continue;
+
+    // Avoid Energy Switches
+    const distS1 = Math.sqrt(Math.pow(x + 15, 2) + Math.pow(z - 18, 2));
+    const distS2 = Math.sqrt(Math.pow(x - 25, 2) + Math.pow(z + 22, 2));
+    const distS3 = Math.sqrt(Math.pow(x - 0, 2) + Math.pow(z - 45, 2));
+    if (distS1 < 8 || distS2 < 8 || distS3 < 8) continue;
+
     // House dimensions
     const width = 4 + seededRandom() * 4;
     const depth = 3 + seededRandom() * 3;
