@@ -408,7 +408,8 @@ function spawnSingle(scene, playerPos, forcedType = null) {
     targetY: pos.y,
     diveTimer: 0,
     hoverTimer: 0,
-    isKamikaze: false
+    isKamikaze: false,
+    farTimer: 0
   };
 
   if (zombie.isDog) {
@@ -604,6 +605,22 @@ export function updateZombies(delta, audioCallback) {
     }
 
     z.damageCooldown = Math.max(0, z.damageCooldown - delta);
+
+    // Respawn logic for zombies that are too far or stuck
+    const distToPlayer = z.mesh.position.distanceTo(playerPos);
+    if (distToPlayer > 45) {
+      z.farTimer += delta;
+      if (z.farTimer > 30) {
+        // Respawn!
+        const newPos = randomSpawnPosition(playerPos);
+        if (z.isBat) newPos.y = playerPos.y + 4 + Math.random() * 2;
+        z.mesh.position.copy(newPos);
+        z.farTimer = 0;
+        z.stuckTimer = 0;
+      }
+    } else {
+      z.farTimer = 0;
+    }
 
     if (z.flashTimer > 0) {
       z.flashTimer -= delta;
