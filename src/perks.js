@@ -21,10 +21,10 @@ const PERK_DEFS = {
   },
   quickRevive: {
     name: 'Quick Revive',
-    cost: 1500,
+    cost: 500,
     color: 0x2244aa,
     pos: new THREE.Vector3(-10, 0, 10),
-    needsPower: true
+    needsPower: false
   }
 };
 
@@ -80,7 +80,9 @@ export function updatePerks(delta) {
         continue;
     }
 
-    if (isPowerOn) {
+    const hasPower = isPowerOn || !m.def.needsPower;
+
+    if (hasPower) {
       // Full bright color
       m.body.material.uniforms.uColor.value.setHex(m.def.color);
       m.light.intensity = 4.0;
