@@ -37,6 +37,7 @@ export const gameState = {
     quickRevive: false
   },
   quickReviveUses: 0,
+  reviveTimer: 0,
 
   lifeRegenTimer: 0,
   MAX_LIVES: 3,
@@ -56,6 +57,7 @@ export const gameState = {
     this.isPowerOn = false;
     this.perks = { juggernog: false, speedCola: false, quickRevive: false };
     this.quickReviveUses = 0;
+    this.reviveTimer = 0;
     this.lifeRegenTimer = LIFE_REGEN_DELAY;
     this._beginRound();
   },
@@ -161,7 +163,8 @@ export const gameState = {
     if (this.lives <= 0) {
       // Check Quick Revive
       if (this.perks.quickRevive) {
-        this.lives = 1;
+        this.state = 'reviving';
+        this.reviveTimer = 10.0;
         this.losePerks();
         return false; // Not game over yet
       }
@@ -191,6 +194,15 @@ export const gameState = {
   },
 
   tick(delta) {
+    if (this.state === 'reviving') {
+      this.reviveTimer -= delta;
+      if (this.reviveTimer <= 0) {
+        this.state = 'playing';
+        this.lives = 1;
+        this.reviveTimer = 0;
+      }
+    }
+
     if (this.state !== 'playing') return;
 
     if (this.roundBannerTimer > 0) this.roundBannerTimer -= delta;

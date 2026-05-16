@@ -507,7 +507,7 @@ function animateWalk(z, delta, isMoving) {
 }
 
 export function updateZombies(delta, audioCallback) {
-  if (gameState.state !== 'playing') return;
+  if (gameState.state !== 'playing' && gameState.state !== 'reviving') return;
 
   const playerPos = getPlayerPosition();
   const scene = getScene();
@@ -631,6 +631,10 @@ export function updateZombies(delta, audioCallback) {
       .subVectors(playerPos, z.mesh.position)
       .setY(0);
 
+    if (gameState.state === 'reviving') {
+      dir.negate();
+    }
+
     const dist = dir.length();
     let isMoving = dist > 0.01 && dist > DAMAGE_DISTANCE * 0.8;
 
@@ -645,6 +649,10 @@ export function updateZombies(delta, audioCallback) {
       if (z.isKamikaze) {
         // Kamikaze dive: go straight for the player fast
         const diveDir = new THREE.Vector3().subVectors(playerPos, z.mesh.position).normalize();
+        if (gameState.state === 'reviving') {
+          diveDir.negate();
+          diveDir.y += 0.5; // fly upwards
+        }
         z.mesh.position.addScaledVector(diveDir, baseSpeed * 6 * delta); 
         
         // Tilt downwards during dive
@@ -784,7 +792,7 @@ export function updateZombies(delta, audioCallback) {
     }
 
     const vertDist = Math.abs(playerPos.y - z.mesh.position.y);
-    if (dist < DAMAGE_DISTANCE && vertDist < 2.0 && z.damageCooldown <= 0) {
+    if (gameState.state !== 'reviving' && dist < DAMAGE_DISTANCE && vertDist < 2.0 && z.damageCooldown <= 0) {
       z.damageCooldown = DAMAGE_COOLDOWN;
       gameState.takeDamage();
       if (audioCallback) audioCallback();

@@ -75,6 +75,7 @@ function startGame() {
   clearAllPowerups();
   resetWeapon();
   gameState.startGame();
+  import('./src/energy.js').then(m => m.resetSwitches());
   hideMenu();
   spawnInitialZombies();
   lastTime = performance.now();
@@ -210,17 +211,21 @@ function gameLoop() {
 
   updateAtmosphere(time);
 
-  if (gameState.state === 'playing') {
+  if (gameState.state === 'playing' || gameState.state === 'reviving') {
     gameState.tick(delta);
     updatePlayer(delta);
-    updateMobileInput();
-    updateGamepadInput();
+    
+    if (gameState.state === 'playing') {
+      updateMobileInput();
+      updateGamepadInput();
+      updateWeapon(delta);
+    }
+    
     updateZombies(delta, () => showBlood());
     updatePowerups(delta);
     updateAmmoStation(delta);
     updateMysteryBox(delta);
     updatePerks(delta);
-    updateWeapon(delta);
     updateHUD(delta);
     updateBlood(delta);
 

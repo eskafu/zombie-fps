@@ -2,6 +2,8 @@
 // GAMEPAD SUPPORT (PlayStation / CoD Style)
 // ═══════════════════════════════════════════════════════════════
 
+import { gameState } from './game-state.js';
+
 export class GamepadControls {
   constructor() {
     this.gamepadIndex = -1;

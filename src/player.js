@@ -202,7 +202,7 @@ export function updatePlayer(delta) {
   // On desktop, require pointer lock. On mobile or gamepad, active while playing.
   const hasGamepad = gamepadInput && gamepadInput.gamepadIndex !== -1;
   if (!_mobile && !hasGamepad && (!controls || !controls.isLocked)) return;
-  if (gameState.state !== 'playing') return;
+  if (gameState.state !== 'playing' && gameState.state !== 'reviving') return;
 
   if (grappleState === 'shooting') {
     const hookSpeed = 200 * delta;
@@ -258,7 +258,8 @@ export function updatePlayer(delta) {
 
   let sprinting = false;
 
-  if (_mobile && mobileInput) {
+  if (gameState.state !== 'reviving') {
+    if (_mobile && mobileInput) {
     // ── Mobile input ──
     const move = mobileInput.getMovement();
     direction.x = move.x;
@@ -317,6 +318,7 @@ export function updatePlayer(delta) {
     if (moveRight)    direction.x += 1;
     sprinting = isSprinting;
   }
+  }
 
   if (direction.length() > 0) {
     direction.normalize();
@@ -350,8 +352,9 @@ export function updatePlayer(delta) {
   const floorY = getGroundHeight(pos.x, pos.z, 0.2);
   let targetFloorY = PLAYER_HEIGHT; // Default ground (1.7)
   
-  // If we are falling onto an obstacle or standing on it
-  if (pos.y - 1.7 >= floorY - 0.6) {
+  if (gameState.state === 'reviving') {
+    targetFloorY = floorY + 0.3; // Low to the ground
+  } else if (pos.y - 1.7 >= floorY - 0.6) {
     targetFloorY = floorY + PLAYER_HEIGHT;
   }
 

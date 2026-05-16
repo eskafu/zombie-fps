@@ -89,8 +89,15 @@ export function initHUD() {
 
   // Slider events
   const onSensChange = (e) => {
-    const mouse = parseFloat(sensMouse ? sensMouse.value : (sensMouseStart ? sensMouseStart.value : 1.0));
-    const pad = parseFloat(sensPad ? sensPad.value : (sensPadStart ? sensPadStart.value : 1.5));
+    let mouse = gameState.mouseSensitivity;
+    let pad = gameState.gamepadSensitivity;
+    
+    if (e.target.id.includes('mouse')) {
+      mouse = parseFloat(e.target.value);
+    } else if (e.target.id.includes('pad')) {
+      pad = parseFloat(e.target.value);
+    }
+
     gameState.updateSettings(mouse, pad);
     updateSliderDisplays();
     updatePlayerSettings();
@@ -154,6 +161,21 @@ export function initHUD() {
   }
   elements.vignette = vignette;
 
+  // Revive overlay
+  let reviveOverlay = document.getElementById('revive-overlay');
+  if (!reviveOverlay) {
+    reviveOverlay = document.createElement('div');
+    reviveOverlay.id = 'revive-overlay';
+    reviveOverlay.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 7; display: none;
+      backdrop-filter: grayscale(100%);
+      -webkit-backdrop-filter: grayscale(100%);
+    `;
+    document.body.appendChild(reviveOverlay);
+  }
+  elements.reviveOverlay = reviveOverlay;
+
   // Weapon slots indicator
   let weaponSlots = document.getElementById('weapon-slots');
   if (!weaponSlots) {
@@ -199,11 +221,27 @@ export function updateHUD(delta) {
 
   // Dynamic crosshair
   if (elements.crosshair) {
-    // Recover spread
-    crosshairSpread = Math.max(0, crosshairSpread - CROSSHAIR_RECOVER * delta);
-    const size = CROSSHAIR_BASE_SIZE + crosshairSpread;
-    elements.crosshair.style.width = size + 'px';
-    elements.crosshair.style.height = size + 'px';
+    if (gameState.state === 'reviving') {
+      elements.crosshair.style.display = 'none';
+    } else {
+      elements.crosshair.style.display = 'block';
+      // Recover spread
+      crosshairSpread = Math.max(0, crosshairSpread - CROSSHAIR_RECOVER * delta);
+      const size = CROSSHAIR_BASE_SIZE + crosshairSpread;
+      elements.crosshair.style.width = size + 'px';
+      elements.crosshair.style.height = size + 'px';
+    }
+  }
+
+  // Revive overlay update
+  if (elements.reviveOverlay) {
+    if (gameState.state === 'reviving') {
+      elements.reviveOverlay.style.display = 'block';
+      const progress = 1 - (gameState.reviveTimer / 10.0);
+      elements.reviveOverlay.style.backgroundColor = `rgba(0, 0, 0, ${progress})`;
+    } else {
+      elements.reviveOverlay.style.display = 'none';
+    }
   }
 
   // Round banner
