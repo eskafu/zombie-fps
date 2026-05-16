@@ -171,10 +171,13 @@ export function initHUD() {
       pointer-events: none; z-index: 7; display: none;
       backdrop-filter: grayscale(100%);
       -webkit-backdrop-filter: grayscale(100%);
+      display: flex; align-items: center; justify-content: center;
     `;
+    reviveOverlay.innerHTML = '<div id="revive-counter" style="color: #ff3333; font-size: 80px; font-family: \'Press Start 2P\', sans-serif; text-shadow: 4px 4px 0px #000, 0 0 20px #f00;">5</div>';
     document.body.appendChild(reviveOverlay);
   }
   elements.reviveOverlay = reviveOverlay;
+  elements.reviveCounter = document.getElementById('revive-counter');
 
   // Weapon slots indicator
   let weaponSlots = document.getElementById('weapon-slots');
@@ -236,9 +239,16 @@ export function updateHUD(delta) {
   // Revive overlay update
   if (elements.reviveOverlay) {
     if (gameState.state === 'reviving') {
-      elements.reviveOverlay.style.display = 'block';
-      const progress = 1 - (gameState.reviveTimer / 10.0);
+      elements.reviveOverlay.style.display = 'flex';
+      
+      // Pulse 5 times: timer goes from 5.0 to 0.0
+      const progress = Math.cos(gameState.reviveTimer * Math.PI * 2) * -0.5 + 0.5;
       elements.reviveOverlay.style.backgroundColor = `rgba(0, 0, 0, ${progress})`;
+      
+      if (elements.reviveCounter) {
+        elements.reviveCounter.textContent = Math.ceil(gameState.reviveTimer);
+        elements.reviveCounter.style.transform = `scale(${1 + progress * 0.2})`;
+      }
     } else {
       elements.reviveOverlay.style.display = 'none';
     }

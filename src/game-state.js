@@ -170,7 +170,7 @@ export const gameState = {
       // Check Quick Revive
       if (this.perks.quickRevive) {
         this.state = 'reviving';
-        this.reviveTimer = 10.0;
+        this.reviveTimer = 5.0;
         this.losePerks();
         return false; // Not game over yet
       }
