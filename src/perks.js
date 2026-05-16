@@ -21,10 +21,10 @@ const PERK_DEFS = {
   },
   quickRevive: {
     name: 'Quick Revive',
-    cost: 500,
+    cost: 1500,
     color: 0x2244aa,
     pos: new THREE.Vector3(-10, 0, 10),
-    needsPower: false
+    needsPower: true
   }
 };
 
