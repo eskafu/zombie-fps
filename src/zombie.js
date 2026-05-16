@@ -564,7 +564,7 @@ export function updateZombies(delta, audioCallback) {
 
       // Check if we should trigger next batch
       const aliveCount = zombies.filter(z => z.alive).length;
-      const maxBatches = gameState.zombiesInRound / 4;
+      const maxBatches = Math.ceil(gameState.zombiesInRound / 4);
       if (aliveCount <= 1 && currentBatch < maxBatches && !batchPendingBat) {
         triggerNextBatch(scene, playerPos);
       }

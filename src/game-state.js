@@ -88,9 +88,13 @@ export const gameState = {
     this.isDogRound = (this.round > 0 && this.round % 4 === 0);
     
     if (this.isDogRound) {
-      // Make early dog rounds easier: R4=2 batches (8 enemies), R8=3 batches (12), R12+=4 batches (16)
-      const batches = Math.min(4, Math.floor(this.round / 4) + 1);
-      this.zombiesInRound = batches * 4;
+      if (this.round <= 4) {
+        this.zombiesInRound = 6;
+      } else if (this.round <= 8) {
+        this.zombiesInRound = 8;
+      } else {
+        this.zombiesInRound = 10;
+      }
     } else {
       this.zombiesInRound = Math.min(6 + this.round * 6, 24 + this.round);
     }
