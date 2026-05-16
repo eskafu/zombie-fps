@@ -62,12 +62,35 @@ export function initPerks() {
     group.add(light);
 
     scene.add(group);
-    machines[id] = { group, light, def };
+    machines[id] = { group, light, body, def };
   }
 
   document.addEventListener('keydown', (e) => {
     if (e.code === 'KeyE') tryBuyPerk();
   });
+}
+
+export function updatePerks(delta) {
+  const isPowerOn = gameState.isPowerOn;
+
+  for (const [id, m] of Object.entries(machines)) {
+    // Machine is visible only if Quick Revive hasn't disappeared
+    if (id === 'quickRevive' && gameState.quickReviveUses >= 2 && !gameState.perks.quickRevive) {
+        m.group.visible = false;
+        continue;
+    }
+
+    if (isPowerOn) {
+      // Full bright color
+      m.body.material.uniforms.uColor.value.setHex(m.def.color);
+      m.light.intensity = 4.0;
+    } else {
+      // Very dark version (10% of brightness)
+      const darkColor = new THREE.Color(m.def.color).multiplyScalar(0.1);
+      m.body.material.uniforms.uColor.value.copy(darkColor);
+      m.light.intensity = 0;
+    }
+  }
 }
 
 export function tryBuyPerk() {

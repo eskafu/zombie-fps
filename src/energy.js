@@ -9,7 +9,7 @@ const SWITCH_POSITIONS = [
   new THREE.Vector3(25, 0, -22),
   new THREE.Vector3(0, 0, 45)
 ];
-const INTERACT_RADIUS = 3.0;
+const INTERACT_RADIUS = 4.5;
 
 const switches = [];
 

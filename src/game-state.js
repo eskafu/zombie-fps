@@ -86,8 +86,7 @@ export const gameState = {
     this.isDogRound = (this.round > 0 && this.round % 4 === 0);
     
     if (this.isDogRound) {
-      // Fewer dogs but faster (approx 1.5 per level)
-      this.zombiesInRound = Math.min(4 + this.round, 16);
+      this.zombiesInRound = 16; // 4 batches of 4 enemies (2 bats + 2 dogs)
     } else {
       this.zombiesInRound = Math.min(6 + this.round * 6, 24 + this.round);
     }

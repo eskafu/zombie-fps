@@ -123,6 +123,67 @@ export function playZombieGrowl(distance) {
   osc.stop(now + 0.8);
 }
 
+export function playBatScreech(distance) {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  const volume = Math.max(0.01, Math.min(0.08, 0.08 - distance / 50));
+
+  const osc = ctx.createOscillator();
+  osc.type = 'triangle';
+  const freq = 1500 + Math.random() * 500;
+  osc.frequency.setValueAtTime(freq, now);
+  osc.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 0.2);
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.3);
+}
+
+export function playDogBark(distance) {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+  const volume = Math.max(0.02, Math.min(0.12, 0.12 - distance / 50));
+
+  // Growl - low rough sound
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(80, now);
+  osc.frequency.linearRampToValueAtTime(120, now + 0.1);
+  osc.frequency.linearRampToValueAtTime(60, now + 0.3);
+
+  // Modulation for the "rough" texture
+  const mod = ctx.createOscillator();
+  mod.type = 'sawtooth';
+  mod.frequency.value = 35; // Rapid modulation
+  const modGain = ctx.createGain();
+  modGain.gain.value = 40;
+  
+  mod.connect(modGain);
+  modGain.connect(osc.frequency);
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(600, now);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  
+  mod.start(now);
+  osc.start(now);
+  mod.stop(now + 0.4);
+  osc.stop(now + 0.4);
+}
+
 export function playPickupSound() {
   const ctx = getCtx();
   const now = ctx.currentTime;

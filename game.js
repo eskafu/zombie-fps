@@ -10,7 +10,7 @@ import { initMysteryBox, updateMysteryBox, tryActivateBox, isNearMysteryBox, get
 import { MobileControls, isMobile, lockLandscape } from './src/mobile.js';
 import { GamepadControls } from './src/gamepad.js';
 import { initEnergySwitches, tryInteractSwitch, getNearestSwitchLabel } from './src/energy.js';
-import { initPerks, tryBuyPerk, getNearestPerkLabel } from './src/perks.js';
+import { initPerks, updatePerks, tryBuyPerk, getNearestPerkLabel } from './src/perks.js';
 
 let lastTime = performance.now();
 let lastScore = 0;
@@ -219,6 +219,7 @@ function gameLoop() {
     updatePowerups(delta);
     updateAmmoStation(delta);
     updateMysteryBox(delta);
+    updatePerks(delta);
     updateWeapon(delta);
     updateHUD(delta);
     updateBlood(delta);

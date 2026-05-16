@@ -5,7 +5,7 @@ import { gameState } from './game-state.js';
 import { createCelMaterial, applyOutlineToMesh } from './celshade.js';
 import { makeGrungeMaterial } from './textures.js';
 import { tryDropPowerup, forceDropMaxAmmo } from './powerups.js';
-import { playZombieGrowl } from './audio.js';
+import { playZombieGrowl, playBatScreech, playDogBark } from './audio.js';
 
 const zombies = [];
 const particles = [];
@@ -48,6 +48,13 @@ let spawnAccumulator = 0;
 let wasRoundStarting = false;
 let growlCooldown = 0;
 let globalBatAttackCooldown = 0; // Cooldown between different bat attacks
+let batsSpawnedThisRound = 0;
+let batSpawnTimer = 0;
+
+// Batch logic for special rounds
+let currentBatch = 0;
+let batchBatTimer = 0;
+let batchPendingBat = false;
 
 function findLimbs(model) {
   const limbs = {};
@@ -297,6 +304,7 @@ function createBatMesh() {
     m.position.set(x, y, z);
     m.castShadow = true;
     if (tag) m.userData[tag] = true;
+    m.userData.baseMat = mat; // Fix crash: store base material
     return m;
   }
 
@@ -339,13 +347,17 @@ function findDogLimbs(model) {
   return limbs;
 }
 
-function spawnSingle(scene, playerPos) {
+function spawnSingle(scene, playerPos, forcedType = null) {
   if (zombies.length >= MAX_ZOMBIES) return null;
   if (!gameState.canSpawnMore()) return null;
 
   const isDogRound = gameState.isDogRound;
   const isElite = !isDogRound && gameState.round >= 5 && Math.random() < 0.20;
-  const isBat = isDogRound && Math.random() < 0.4; // 40% chance of bats during dog round
+  
+  let isBat = forcedType === 'bat';
+  if (!forcedType && isDogRound) {
+    isBat = Math.random() < 0.4;
+  }
   
   let mesh, mat;
   if (isDogRound) {
@@ -401,11 +413,25 @@ function spawnSingle(scene, playerPos) {
 
   if (zombie.isDog) {
     mesh.scale.setScalar(1.5); // Half of the previous 3.0 scale
+  } else if (zombie.isBat) {
+    mesh.scale.setScalar(1.5); // Slightly bigger bats
   }
 
   zombies.push(zombie);
   gameState.onZombieSpawned();
   return zombie;
+}
+
+function triggerNextBatch(scene, playerPos) {
+  currentBatch++;
+  // Spawn 2 dogs and 1st bat
+  spawnSingle(scene, playerPos, 'dog');
+  spawnSingle(scene, playerPos, 'dog');
+  spawnSingle(scene, playerPos, 'bat');
+  
+  // Set timer for 2nd bat (5s delay)
+  batchBatTimer = 5.0;
+  batchPendingBat = true;
 }
 
 function setZombieMaterial(zombie, material) {
@@ -505,19 +531,49 @@ export function updateZombies(delta, audioCallback) {
 
   // Spawn zombies gradually
   if (!gameState.roundStarting) {
-    // Round just started — spawn initial batch immediately
     if (wasRoundStarting) {
       wasRoundStarting = false;
-      const initialCount = 2 + Math.floor(Math.random() * 2);
-      for (let i = 0; i < initialCount; i++) {
-        spawnSingle(scene, playerPos);
+      batsSpawnedThisRound = 0;
+      batSpawnTimer = 0;
+      currentBatch = 0;
+      batchBatTimer = 0;
+      batchPendingBat = false;
+      
+      // If it's a dog round, trigger the first batch immediately
+      if (gameState.isDogRound) {
+        triggerNextBatch(scene, playerPos);
+      } else {
+        // Normal round initial spawn
+        const initialCount = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < initialCount; i++) {
+          spawnSingle(scene, playerPos);
+        }
       }
     }
-    spawnAccumulator += delta;
-    const interval = gameState.getSpawnInterval();
-    while (spawnAccumulator >= interval && zombies.filter(z => z.alive).length < MAX_ZOMBIES) {
-      spawnAccumulator -= interval;
-      if (!spawnSingle(scene, playerPos)) break;
+
+    if (gameState.isDogRound) {
+      // Dog round batch logic
+      if (batchPendingBat) {
+        batchBatTimer -= delta;
+        if (batchBatTimer <= 0) {
+          spawnSingle(scene, playerPos, 'bat');
+          batchPendingBat = false;
+        }
+      }
+
+      // Check if we should trigger next batch
+      const aliveCount = zombies.filter(z => z.alive).length;
+      if (aliveCount <= 1 && currentBatch < 4 && !batchPendingBat) {
+        triggerNextBatch(scene, playerPos);
+      }
+    } else {
+      // Normal round gradual spawn
+      spawnAccumulator += delta;
+      const interval = gameState.getSpawnInterval();
+      while (spawnAccumulator >= interval && zombies.filter(z => z.alive).length < MAX_ZOMBIES) {
+        spawnAccumulator -= interval;
+        if (!spawnSingle(scene, playerPos)) break;
+      }
     }
   }
 
@@ -525,6 +581,7 @@ export function updateZombies(delta, audioCallback) {
   const isLastZombie = zombies.filter(z => z.alive).length === 1;
   
   if (globalBatAttackCooldown > 0) globalBatAttackCooldown -= delta;
+  if (batSpawnTimer > 0) batSpawnTimer -= delta;
 
   // Find the actual last alive zombie for pulsing
   let lastAliveZombie = null;
@@ -576,10 +633,10 @@ export function updateZombies(delta, audioCallback) {
         // Tilt downwards during dive
         z.model.rotation.x = 1.0;
       } else {
-        // Hovering state: try to stay in front and high
+        // Hovering state: try to stay in front and not too high
         const hoverTarget = playerPos.clone()
-          .addScaledVector(playerForward, 8) 
-          .add(new THREE.Vector3(0, 6 + Math.sin(performance.now() * 0.003) * 0.5, 0));
+          .addScaledVector(playerForward, 12) 
+          .add(new THREE.Vector3(0, 2.5 + Math.sin(performance.now() * 0.003) * 0.5, 0));
         
         const hoverDir = new THREE.Vector3().subVectors(hoverTarget, z.mesh.position);
         const hoverDist = hoverDir.length();
@@ -590,10 +647,10 @@ export function updateZombies(delta, audioCallback) {
 
         z.hoverTimer += delta;
         
-        // After 30s hover, check if can attack
-        if (z.hoverTimer > 30 && globalBatAttackCooldown <= 0) {
+        // After 10s hover, check if can attack
+        if (z.hoverTimer > 10 && globalBatAttackCooldown <= 0) {
           z.isKamikaze = true;
-          globalBatAttackCooldown = 30; // 30s pause between attacks
+          globalBatAttackCooldown = 10; // 10s pause between attacks
         }
       }
     }
@@ -610,7 +667,7 @@ export function updateZombies(delta, audioCallback) {
         dir.add(wobble).normalize();
       }
 
-      const speed = isLastZombie ? baseSpeed * 0.35 : (z.isElite ? baseSpeed * 1.8 : (z.isDog || z.isBat ? baseSpeed * 2.8 : baseSpeed));
+      const speed = isLastZombie ? baseSpeed * 2.5 : (z.isElite ? baseSpeed * 1.8 : (z.isBat ? baseSpeed * 2.8 : (z.isDog ? baseSpeed * 2.1 : baseSpeed)));
       const step = speed * delta;
       
       const beforePos = z.mesh.position.clone();
@@ -736,8 +793,16 @@ export function updateZombies(delta, audioCallback) {
       if (d < nearestDist) { nearestDist = d; nearest = z; }
     }
     if (nearest && nearestDist < 25) {
-      playZombieGrowl(nearestDist);
-      growlCooldown = 2 + Math.random() * 3;
+      if (nearest.isBat) {
+        playBatScreech(nearestDist);
+        growlCooldown = 1.5 + Math.random() * 2;
+      } else if (nearest.isDog) {
+        playDogBark(nearestDist);
+        growlCooldown = 1.0 + Math.random() * 1.5; // Dogs bark more frequently
+      } else {
+        playZombieGrowl(nearestDist);
+        growlCooldown = 2 + Math.random() * 3;
+      }
     }
   }
 
