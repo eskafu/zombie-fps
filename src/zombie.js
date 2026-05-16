@@ -638,6 +638,10 @@ export function updateZombies(delta, audioCallback) {
 
     const dist = dir.length();
     let isMoving = dist > 0.01 && dist > DAMAGE_DISTANCE * 0.8;
+    
+    if (gameState.state === 'reviving') {
+      isMoving = true; // Never stop when running away
+    }
 
     if (z.isBat) {
       isMoving = true;
@@ -693,11 +697,14 @@ export function updateZombies(delta, audioCallback) {
         dir.add(wobble).normalize();
       }
 
-      const speed = isLastZombie ? baseSpeed * 2.5 : (z.isElite ? baseSpeed * 1.8 : (z.isBat ? baseSpeed * 2.8 : (z.isDog ? baseSpeed * 2.1 : baseSpeed)));
+      let speed = isLastZombie ? baseSpeed * 2.5 : (z.isElite ? baseSpeed * 1.8 : (z.isBat ? baseSpeed * 2.8 : (z.isDog ? baseSpeed * 2.1 : baseSpeed)));
+      if (gameState.state === 'reviving') speed *= 2.0; // Run away faster
+
       const step = speed * delta;
       
       const beforePos = z.mesh.position.clone();
-      z.mesh.position.addScaledVector(dir, Math.min(step, dist));
+      const moveAmount = gameState.state === 'reviving' ? step : Math.min(step, dist);
+      z.mesh.position.addScaledVector(dir, moveAmount);
       
       if (!z.isBat) {
         resolveCollision(z.mesh.position, z.isDog ? 1.0 : 0.5);

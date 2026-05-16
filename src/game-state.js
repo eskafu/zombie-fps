@@ -38,6 +38,7 @@ export const gameState = {
   },
   quickReviveUses: 0,
   reviveTimer: 0,
+  invulnerabilityTimer: 0,
 
   lifeRegenTimer: 0,
   MAX_LIVES: 3,
@@ -58,6 +59,7 @@ export const gameState = {
     this.perks = { juggernog: false, speedCola: false, quickRevive: false };
     this.quickReviveUses = 0;
     this.reviveTimer = 0;
+    this.invulnerabilityTimer = 0;
     this.lifeRegenTimer = LIFE_REGEN_DELAY;
     this._beginRound();
   },
@@ -163,7 +165,7 @@ export const gameState = {
   },
 
   takeDamage() {
-    if (this.state !== 'playing') return false;
+    if (this.state !== 'playing' || this.invulnerabilityTimer > 0) return false;
     this.lives--;
     
     if (this.lives <= 0) {
@@ -200,12 +202,17 @@ export const gameState = {
   },
 
   tick(delta) {
+    if (this.invulnerabilityTimer > 0) {
+      this.invulnerabilityTimer -= delta;
+    }
+
     if (this.state === 'reviving') {
       this.reviveTimer -= delta;
       if (this.reviveTimer <= 0) {
         this.state = 'playing';
         this.lives = 1;
         this.reviveTimer = 0;
+        this.invulnerabilityTimer = 2.0;
       }
     }
 
